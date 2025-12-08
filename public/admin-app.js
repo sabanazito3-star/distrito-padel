@@ -1,4 +1,4 @@
-// admin-app.js - Panel Admin v7.2 - COMPLETO con todas las funciones
+// admin-app.js - Panel Admin v7.3 - Fix formato fecha
 const API_BASE = '';
 
 let state = {
@@ -136,6 +136,17 @@ function convertirA12h(hora24) {
   return `${hora12}:${String(m).padStart(2, '0')} ${periodo}`;
 }
 
+// NUEVA FUNCIÓN: Formatear fecha
+function formatearFecha(fechaISO) {
+  if (!fechaISO) return '';
+  const fecha = new Date(fechaISO);
+  const fechaLocal = new Date(fecha.getTime() + fecha.getTimezoneOffset() * 60000);
+  const dia = fechaLocal.getDate().toString().padStart(2, '0');
+  const mes = (fechaLocal.getMonth() + 1).toString().padStart(2, '0');
+  const año = fechaLocal.getFullYear();
+  return `${dia}/${mes}/${año}`;
+}
+
 function renderReservas() {
   const tbody = document.getElementById('reservasTable');
   tbody.innerHTML = '';
@@ -204,7 +215,7 @@ function renderReservas() {
         `;
 
       tr.innerHTML = `
-        <td class="px-4 py-3">${r.fecha}</td>
+        <td class="px-4 py-3">${formatearFecha(r.fecha)}</td>
         <td class="px-4 py-3 font-bold">${convertirA12h(r.hora_inicio)}</td>
         <td class="px-4 py-3">${r.duracion}h</td>
         <td class="px-4 py-3">${r.cancha}</td>
@@ -325,7 +336,7 @@ function renderPromociones() {
     div.className = 'bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-4';
     
     let textoPromo = `${p.descuento}% OFF`;
-    if (p.fecha) textoPromo += ` - ${p.fecha}`;
+    if (p.fecha) textoPromo += ` - ${formatearFecha(p.fecha)}`;
     if (p.hora_inicio && p.hora_fin) textoPromo += ` de ${convertirA12h(p.hora_inicio)} a ${convertirA12h(p.hora_fin)}`;
     
     div.innerHTML = `
@@ -406,7 +417,7 @@ function renderBloqueos() {
     const div = document.createElement('div');
     div.className = 'bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4';
     
-    let textoBloqueo = `${b.fecha}`;
+    let textoBloqueo = `${formatearFecha(b.fecha)}`;
     if (b.cancha) textoBloqueo += ` - Cancha ${b.cancha}`;
     else textoBloqueo += ' - Todas las canchas';
     if (b.hora_inicio && b.hora_fin) textoBloqueo += ` de ${convertirA12h(b.hora_inicio)} a ${convertirA12h(b.hora_fin)}`;
