@@ -24,7 +24,7 @@ const pool = new Pool({
 });
 
 // RESEND
-const resend = new Resend('re_93X1UfRJ_C3bR3TzdSuC1xZgXjZHXGJqi');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // INICIALIZAR TABLAS
 async function initDB() {
@@ -127,7 +127,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     try {
       await resend.emails.send({
-        from: 'Distrito Padel <noreply@distritopadel.com>',
+        from: 'Distrito Padel <noreply@distritopadel.lat>',
         to: [email],
         subject: 'Bienvenido a Distrito Padel',
         html: `<h2>Hola ${nombre}</h2><p>Tu cuenta ha sido creada exitosamente.</p>`
@@ -243,7 +243,7 @@ app.post('/api/reservas/crear', async (req, res) => {
 
     try {
       await resend.emails.send({
-        from: 'Distrito Padel <noreply@distritopadel.com>',
+        from: 'Distrito Padel <noreply@distritopadel.lat>',
         to: [usuario.email],
         subject: `Reserva Confirmada - Cancha ${cancha}`,
         html: `<h2>Reserva Confirmada ${usuario.nombre}</h2>
