@@ -1,17 +1,18 @@
 // server.js - Distrito Padel v5.0 con Sistema de Configuración
-require('dotenv').config();
-(async () => {
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const nodemailer = require('nodemailer');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { nanoid } = await import('nanoid');
+import dotenv from 'dotenv';
+dotenv.config();
 
-const DATA_FILE = path.join(__dirname, 'data.json');
-const CONFIG_FILE = path.join(__dirname, 'config.json');
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function loadData() {
   try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
