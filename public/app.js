@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v6.5 - Fix promociones con fecha y horario
+// app.js - Frontend Distrito Padel v6.6 - Fix formato fecha promociones
 const API_BASE = '';
 
 let state = {
@@ -178,7 +178,6 @@ async function cargarPromociones() {
   try {
     const res = await fetch(API_BASE + '/api/promociones');
     state.promociones = await res.json();
-    console.log('Promociones cargadas:', state.promociones); // DEBUG
   } catch (err) {
     console.error('Error promociones:', err);
   }
@@ -294,13 +293,16 @@ function renderizarHorarios() {
         precioBase = (horasAntes * state.config.precios.horaDia) + (horasDespues * state.config.precios.horaNoche);
       }
 
-      // Verificar promoción (LÓGICA CORREGIDA)
+      // Verificar promoción (FIX: Extraer fecha sin hora)
       let descuento = 0;
       const promo = state.promociones.find(p => {
         if (!p.activa) return false;
         
-        // Si tiene fecha específica, debe coincidir
-        if (p.fecha && p.fecha !== state.selectedDate) return false;
+        // Si tiene fecha específica, extraer solo YYYY-MM-DD y comparar
+        if (p.fecha) {
+          const promoFecha = p.fecha.split('T')[0];
+          if (promoFecha !== state.selectedDate) return false;
+        }
         
         // Si NO tiene rango horario, aplica a todo el día
         if (!p.hora_inicio || !p.hora_fin) return true;
@@ -391,13 +393,16 @@ function seleccionarHora(hora) {
     horaCalculo += horasEnEsteTarifa;
   }
 
-  // Verificar promoción (LÓGICA CORREGIDA)
+  // Verificar promoción (FIX: Extraer fecha sin hora)
   let descuento = 0;
   const promo = state.promociones.find(p => {
     if (!p.activa) return false;
     
-    // Si tiene fecha específica, debe coincidir
-    if (p.fecha && p.fecha !== state.selectedDate) return false;
+    // Si tiene fecha específica, extraer solo YYYY-MM-DD y comparar
+    if (p.fecha) {
+      const promoFecha = p.fecha.split('T')[0];
+      if (promoFecha !== state.selectedDate) return false;
+    }
     
     // Si NO tiene rango horario, aplica a todo el día
     if (!p.hora_inicio || !p.hora_fin) return true;
