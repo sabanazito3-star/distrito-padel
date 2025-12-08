@@ -504,6 +504,22 @@ app.patch('/api/admin/reservas/:id/pagar', verificarAdmin, async (req, res) => {
   }
 });
 
+// ADMIN - MARCAR PENDIENTE (AGREGAR DESPUÉS DE LA RUTA /pagar)
+app.patch('/api/admin/reservas/:id/marcar-pendiente', verificarAdmin, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE reservas SET pagado = false, metodo_pago = NULL, estado = 'pendiente' WHERE id = $1`,
+      [req.params.id]
+    );
+
+    db = await loadData();
+    res.json({ ok: true, msg: 'Marcada como pendiente' });
+  } catch (err) {
+    console.error('Marcar pendiente error:', err.message);
+    res.status(500).json({ ok: false, msg: 'Error al marcar pendiente' });
+  }
+});
+
 // ADMIN - CANCELAR RESERVA
 app.patch('/api/admin/reservas/:id/cancelar', verificarAdmin, async (req, res) => {
   try {
