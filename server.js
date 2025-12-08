@@ -1,10 +1,5 @@
 // En producción Railway inyecta las variables directamente
 // Solo usar dotenv en desarrollo local
-if (process.env.NODE_ENV !== 'production') {
-  const dotenv = await import('dotenv');
-  dotenv.config();
-}
-
 console.log('=== DEBUG VARIABLES ===');
 console.log('ADMIN_TOKEN:', process.env.ADMIN_TOKEN);
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
