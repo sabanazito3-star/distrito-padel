@@ -1,4 +1,4 @@
-// server.js - Distrito Padel v6.1 con Postgres + Resend - ESM
+// server.js - Distrito Padel v6.1 con Postgres + Resend - ESM COMPLETO
 import 'dotenv/config';
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -40,16 +40,16 @@ async function initDB() {
       duracion DECIMAL NOT NULL, precio DECIMAL NOT NULL, descuento INTEGER DEFAULT 0,
       precio_base DECIMAL, estado TEXT DEFAULT 'pendiente', pagado BOOLEAN DEFAULT false,
       metodo_pago TEXT, es_manual BOOLEAN DEFAULT false, cancelada_por TEXT,
-      fecha_cancelacion TIMESTAMP, creada TIMESTAMP DEFAULT NOW())`);
+      fecha_cancelacion TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())`);
     
     await pool.query(`CREATE TABLE IF NOT EXISTS promociones (
       id TEXT PRIMARY KEY, fecha DATE, descuento INTEGER NOT NULL,
       hora_inicio TEXT, hora_fin TEXT, activa BOOLEAN DEFAULT true,
-      creada TIMESTAMP DEFAULT NOW())`);
+      created_at TIMESTAMP DEFAULT NOW())`);
     
     await pool.query(`CREATE TABLE IF NOT EXISTS bloqueos (
       id TEXT PRIMARY KEY, fecha DATE NOT NULL, cancha INTEGER,
-      hora_inicio TEXT, hora_fin TEXT, motivo TEXT, creada TIMESTAMP DEFAULT NOW())`);
+      hora_inicio TEXT, hora_fin TEXT, motivo TEXT, created_at TIMESTAMP DEFAULT NOW())`);
     
     console.log('Tablas Postgres listas');
   } catch (err) {
@@ -64,9 +64,9 @@ async function loadData() {
   try {
     const [usuarios, reservas, promociones, bloqueos] = await Promise.all([
       pool.query('SELECT * FROM usuarios'),
-      pool.query('SELECT * FROM reservas ORDER BY creada DESC'),
-      pool.query('SELECT * FROM promociones ORDER BY creada DESC'),
-      pool.query('SELECT * FROM bloqueos ORDER BY creada DESC')
+      pool.query('SELECT * FROM reservas ORDER BY created_at DESC'),
+      pool.query('SELECT * FROM promociones ORDER BY created_at DESC'),
+      pool.query('SELECT * FROM bloqueos ORDER BY created_at DESC')
     ]);
     return {
       usuarios: Object.fromEntries(usuarios.rows.map(u => [u.email, u])),
