@@ -1,5 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
+console.log('=== DEBUG VARIABLES ===');
+console.log('ADMIN_TOKEN:', process.env.ADMIN_TOKEN);
+console.log('EMAIL_USER:', process.env.EMAIL_USER);
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '***configurado***' : 'NO CONFIGURADO');
+console.log('======================');
 
 import express from 'express';
 import bodyParser from 'body-parser';
