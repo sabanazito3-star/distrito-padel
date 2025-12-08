@@ -592,7 +592,7 @@ app.post('/api/admin/reservas/manual', verificarAdmin, async (req, res) => {
   }
 });
 
-// ADMIN - REPORTE DIA
+// ADMIN - REPORTE DIA PROFESIONAL
 app.get('/api/admin/reporte/dia', verificarAdmin, async (req, res) => {
   try {
     const { fecha } = req.query;
@@ -602,42 +602,165 @@ app.get('/api/admin/reporte/dia', verificarAdmin, async (req, res) => {
       [fecha]
     );
 
-    let csv = 'Nombre,Email,Telefono,Cancha,Hora,Duracion,Precio Base,Descuento,Precio Final,Estado,Metodo Pago\n';
+    const rows = reservas.rows;
     
-    reservas.rows.forEach(r => {
-      csv += `${r.nombre},${r.email},${r.telefono},${r.cancha},${r.hora_inicio},${r.duracion}h,$${r.precio_base || r.precio},${r.descuento}%,$${r.precio},${r.pagado ? 'Pagada' : 'Pendiente'},${r.metodo_pago || 'N/A'}\n`;
+    // Calcular totales
+    const totalReservas = rows.length;
+    const totalRecaudado = rows.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const totalPagado = rows.filter(r => r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const totalPendiente = totalRecaudado - totalPagado;
+    
+    // Por método de pago
+    const efectivo = rows.filter(r => r.metodo_pago === 'Efectivo' && r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const tarjeta = rows.filter(r => r.metodo_pago === 'Tarjeta' && r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const transferencia = rows.filter(r => r.metodo_pago === 'Transferencia' && r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    
+    // Con descuento
+    const conDescuento = rows.filter(r => r.descuento > 0).length;
+    const descuentoTotal = rows.reduce((sum, r) => {
+      if (r.descuento > 0 && r.precio_base) {
+        return sum + (parseFloat(r.precio_base) - parseFloat(r.precio));
+      }
+      return sum;
+    }, 0);
+
+    let csv = `REPORTE DE CIERRE - ${fecha}\n`;
+    csv += `Distrito Padel\n`;
+    csv += `Generado: ${new Date().toLocaleString('es-MX')}\n\n`;
+    
+    csv += `=== RESUMEN GENERAL ===\n`;
+    csv += `Total Reservas,${totalReservas}\n`;
+    csv += `Total Recaudado,$${Math.round(totalRecaudado).toLocaleString()} MXN\n`;
+    csv += `Total Pagado,$${Math.round(totalPagado).toLocaleString()} MXN\n`;
+    csv += `Total Pendiente,$${Math.round(totalPendiente).toLocaleString()} MXN\n\n`;
+    
+    csv += `=== DESGLOSE POR MÉTODO DE PAGO ===\n`;
+    csv += `Efectivo,$${Math.round(efectivo).toLocaleString()} MXN\n`;
+    csv += `Tarjeta,$${Math.round(tarjeta).toLocaleString()} MXN\n`;
+    csv += `Transferencia,$${Math.round(transferencia).toLocaleString()} MXN\n\n`;
+    
+    csv += `=== PROMOCIONES Y DESCUENTOS ===\n`;
+    csv += `Reservas con descuento,${conDescuento}\n`;
+    csv += `Descuento total aplicado,$${Math.round(descuentoTotal).toLocaleString()} MXN\n\n`;
+    
+    csv += `=== DETALLE DE RESERVAS ===\n`;
+    csv += `Hora,Duración,Cancha,Cliente,Email,Teléfono,Precio Base,Descuento %,Precio Final,Estado Pago,Método Pago\n`;
+    
+    rows.forEach(r => {
+      csv += `${r.hora_inicio},${r.duracion}h,${r.cancha},${r.nombre},${r.email},${r.telefono},$${r.precio_base || r.precio},${r.descuento || 0}%,$${r.precio},${r.pagado ? 'Pagada' : 'Pendiente'},${r.metodo_pago || 'N/A'}\n`;
     });
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="reporte_${fecha}.csv"`);
-    res.send(csv);
+    csv += `\n=== TOTALES FINALES ===\n`;
+    csv += `TOTAL RECAUDADO,$${Math.round(totalRecaudado).toLocaleString()} MXN\n`;
+    csv += `TOTAL PAGADO,$${Math.round(totalPagado).toLocaleString()} MXN\n`;
+    csv += `TOTAL PENDIENTE,$${Math.round(totalPendiente).toLocaleString()} MXN\n`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="reporte_detallado_${fecha}.csv"`);
+    res.send('\uFEFF' + csv); // UTF-8 BOM para Excel
   } catch (err) {
     console.error('Reporte dia error:', err.message);
     res.status(500).json({ ok: false, msg: 'Error al generar reporte' });
   }
 });
 
-// ADMIN - REPORTE MES
+// ADMIN - REPORTE MES PROFESIONAL
 app.get('/api/admin/reporte/mes', verificarAdmin, async (req, res) => {
   try {
     const { mes, año } = req.query;
     const fechaInicio = `${año}-${mes.padStart(2, '0')}-01`;
-    const fechaFin = `${año}-${mes.padStart(2, '0')}-31`;
+    const ultimoDia = new Date(parseInt(año), parseInt(mes), 0).getDate();
+    const fechaFin = `${año}-${mes.padStart(2, '0')}-${ultimoDia}`;
 
     const reservas = await pool.query(
       `SELECT * FROM reservas WHERE fecha >= $1 AND fecha <= $2 AND estado != 'cancelada' ORDER BY fecha, hora_inicio`,
       [fechaInicio, fechaFin]
     );
 
-    let csv = 'Fecha,Nombre,Email,Telefono,Cancha,Hora,Duracion,Precio Base,Descuento,Precio Final,Estado,Metodo Pago\n';
+    const rows = reservas.rows;
     
-    reservas.rows.forEach(r => {
-      csv += `${r.fecha},${r.nombre},${r.email},${r.telefono},${r.cancha},${r.hora_inicio},${r.duracion}h,$${r.precio_base || r.precio},${r.descuento}%,$${r.precio},${r.pagado ? 'Pagada' : 'Pendiente'},${r.metodo_pago || 'N/A'}\n`;
+    // Calcular totales
+    const totalReservas = rows.length;
+    const totalRecaudado = rows.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const totalPagado = rows.filter(r => r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const totalPendiente = totalRecaudado - totalPagado;
+    
+    // Por método de pago
+    const efectivo = rows.filter(r => r.metodo_pago === 'Efectivo' && r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const tarjeta = rows.filter(r => r.metodo_pago === 'Tarjeta' && r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const transferencia = rows.filter(r => r.metodo_pago === 'Transferencia' && r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    
+    // Por cancha
+    const cancha1 = rows.filter(r => r.cancha === 1).length;
+    const cancha2 = rows.filter(r => r.cancha === 2).length;
+    const cancha3 = rows.filter(r => r.cancha === 3).length;
+    
+    // Con descuento
+    const conDescuento = rows.filter(r => r.descuento > 0).length;
+    const descuentoTotal = rows.reduce((sum, r) => {
+      if (r.descuento > 0 && r.precio_base) {
+        return sum + (parseFloat(r.precio_base) - parseFloat(r.precio));
+      }
+      return sum;
+    }, 0);
+    
+    // Por día
+    const porDia = {};
+    rows.forEach(r => {
+      const dia = r.fecha.toISOString().split('T')[0];
+      if (!porDia[dia]) porDia[dia] = { reservas: 0, monto: 0 };
+      porDia[dia].reservas++;
+      porDia[dia].monto += parseFloat(r.precio || 0);
     });
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="reporte_${mes}_${año}.csv"`);
-    res.send(csv);
+    const nombreMes = new Date(parseInt(año), parseInt(mes) - 1).toLocaleString('es-MX', { month: 'long' });
+
+    let csv = `REPORTE MENSUAL - ${nombreMes.toUpperCase()} ${año}\n`;
+    csv += `Distrito Padel\n`;
+    csv += `Generado: ${new Date().toLocaleString('es-MX')}\n\n`;
+    
+    csv += `=== RESUMEN GENERAL ===\n`;
+    csv += `Total Reservas,${totalReservas}\n`;
+    csv += `Total Recaudado,$${Math.round(totalRecaudado).toLocaleString()} MXN\n`;
+    csv += `Total Pagado,$${Math.round(totalPagado).toLocaleString()} MXN\n`;
+    csv += `Total Pendiente,$${Math.round(totalPendiente).toLocaleString()} MXN\n`;
+    csv += `Promedio por Reserva,$${Math.round(totalRecaudado / totalReservas).toLocaleString()} MXN\n\n`;
+    
+    csv += `=== DESGLOSE POR MÉTODO DE PAGO ===\n`;
+    csv += `Efectivo,$${Math.round(efectivo).toLocaleString()} MXN,${Math.round(efectivo / totalPagado * 100)}%\n`;
+    csv += `Tarjeta,$${Math.round(tarjeta).toLocaleString()} MXN,${Math.round(tarjeta / totalPagado * 100)}%\n`;
+    csv += `Transferencia,$${Math.round(transferencia).toLocaleString()} MXN,${Math.round(transferencia / totalPagado * 100)}%\n\n`;
+    
+    csv += `=== DESGLOSE POR CANCHA ===\n`;
+    csv += `Cancha 1,${cancha1} reservas\n`;
+    csv += `Cancha 2,${cancha2} reservas\n`;
+    csv += `Cancha 3,${cancha3} reservas\n\n`;
+    
+    csv += `=== PROMOCIONES Y DESCUENTOS ===\n`;
+    csv += `Reservas con descuento,${conDescuento}\n`;
+    csv += `Descuento total aplicado,$${Math.round(descuentoTotal).toLocaleString()} MXN\n\n`;
+    
+    csv += `=== RENDIMIENTO POR DÍA ===\n`;
+    csv += `Fecha,Reservas,Monto\n`;
+    Object.keys(porDia).sort().forEach(dia => {
+      csv += `${dia},${porDia[dia].reservas},$${Math.round(porDia[dia].monto).toLocaleString()}\n`;
+    });
+    
+    csv += `\n=== DETALLE COMPLETO DE RESERVAS ===\n`;
+    csv += `Fecha,Hora,Duración,Cancha,Cliente,Email,Teléfono,Precio Base,Descuento %,Precio Final,Estado Pago,Método Pago\n`;
+    
+    rows.forEach(r => {
+      csv += `${r.fecha.toISOString().split('T')[0]},${r.hora_inicio},${r.duracion}h,${r.cancha},${r.nombre},${r.email},${r.telefono},$${r.precio_base || r.precio},${r.descuento || 0}%,$${r.precio},${r.pagado ? 'Pagada' : 'Pendiente'},${r.metodo_pago || 'N/A'}\n`;
+    });
+
+    csv += `\n=== TOTALES FINALES ===\n`;
+    csv += `TOTAL RECAUDADO,$${Math.round(totalRecaudado).toLocaleString()} MXN\n`;
+    csv += `TOTAL PAGADO,$${Math.round(totalPagado).toLocaleString()} MXN\n`;
+    csv += `TOTAL PENDIENTE,$${Math.round(totalPendiente).toLocaleString()} MXN\n`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="reporte_mensual_${mes}_${año}.csv"`);
+    res.send('\uFEFF' + csv); // UTF-8 BOM para Excel
   } catch (err) {
     console.error('Reporte mes error:', err.message);
     res.status(500).json({ ok: false, msg: 'Error al generar reporte' });

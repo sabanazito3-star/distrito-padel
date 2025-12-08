@@ -1,6 +1,7 @@
 // admin-app.js - Panel Admin v7.3 - Fix formato fecha
 const API_BASE = '';
 
+// Agregar al state inicial
 let state = {
   reservas: [],
   promociones: [],
@@ -10,7 +11,8 @@ let state = {
   token: localStorage.getItem('admin_token') || '',
   currentTab: 'reservas',
   autoUpdateInterval: null,
-  mostrarCanceladas: false
+  mostrarCanceladas: false,
+  mostrarPasadas: false  // NUEVO
 };
 
 window.onload = () => {
@@ -154,7 +156,7 @@ function renderReservas() {
   if (state.reservas.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center py-12 text-gray-500">
+        <td colspan="9" class="text-center py-12 text-gray-500">
           <p class="text-lg">No hay reservas registradas</p>
         </td>
       </tr>
@@ -162,15 +164,49 @@ function renderReservas() {
     return;
   }
 
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
   const activas = state.reservas.filter(r => r.estado !== 'cancelada');
   const canceladas = state.reservas.filter(r => r.estado === 'cancelada');
 
+  // Separar por fecha
+  const futuras = activas.filter(r => {
+    const fechaReserva = new Date(r.fecha);
+    return fechaReserva >= hoy;
+  });
+
+  const pasadas = activas.filter(r => {
+    const fechaReserva = new Date(r.fecha);
+    return fechaReserva < hoy;
+  });
+
+  // Agrupar por día
+  const agruparPorFecha = (reservas) => {
+    const grupos = {};
+    reservas.forEach(r => {
+      const fecha = formatearFecha(r.fecha);
+      if (!grupos[fecha]) grupos[fecha] = [];
+      grupos[fecha].push(r);
+    });
+    return grupos;
+  };
+
+  const reservasFuturas = agruparPorFecha(futuras);
+  const reservasPasadas = agruparPorFecha(pasadas);
+
+  // Header con tabs
   const header = document.createElement('tr');
   header.innerHTML = `
-    <td colspan="8" class="px-4 py-3 bg-blue-50 text-center">
+    <td colspan="9" class="px-4 py-3 bg-blue-50 text-center">
       <div class="flex justify-center gap-6 items-center">
-        <span class="font-bold text-green-700">Activas: ${activas.length}</span>
+        <span class="font-bold text-green-700">Futuras: ${futuras.length}</span>
+        <span class="font-bold text-gray-700">Pasadas: ${pasadas.length}</span>
         <span class="font-bold text-red-700">Canceladas: ${canceladas.length}</span>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="checkMostrarPasadas">
+          <span class="text-sm">Mostrar pasadas</span>
+        </label>
         <label class="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" id="checkMostrarCanceladas" ${state.mostrarCanceladas ? 'checked' : ''}>
           <span class="text-sm">Mostrar canceladas</span>
@@ -181,106 +217,110 @@ function renderReservas() {
   tbody.appendChild(header);
 
   setTimeout(() => {
-    const checkbox = document.getElementById('checkMostrarCanceladas');
-    if (checkbox) {
-      checkbox.onchange = function() {
+    const checkPasadas = document.getElementById('checkMostrarPasadas');
+    const checkCanceladas = document.getElementById('checkMostrarCanceladas');
+    
+    if (checkPasadas) {
+      checkPasadas.onchange = function() {
+        state.mostrarPasadas = this.checked;
+        renderReservas();
+      };
+    }
+    
+    if (checkCanceladas) {
+      checkCanceladas.onchange = function() {
         state.mostrarCanceladas = this.checked;
         renderReservas();
       };
     }
   }, 0);
 
-  const reservasAMostrar = state.mostrarCanceladas ? [...activas, ...canceladas] : activas;
+  // Renderizar reservas futuras
+  const renderGrupo = (grupos, titulo, colorClass) => {
+    Object.keys(grupos).sort().forEach(fecha => {
+      const reservasDelDia = grupos[fecha].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+      
+      // Header de día
+      const headerDia = document.createElement('tr');
+      headerDia.className = `bg-${colorClass}-100 border-t-2 border-${colorClass}-300`;
+      headerDia.innerHTML = `
+        <td colspan="9" class="px-4 py-2 font-bold text-${colorClass}-800">
+          📅 ${fecha} - ${reservasDelDia.length} reserva(s)
+        </td>
+      `;
+      tbody.appendChild(headerDia);
 
-  reservasAMostrar
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .forEach(r => {
-      const tr = document.createElement('tr');
-      const canceladaClass = r.estado === 'cancelada' ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
-      tr.className = `${canceladaClass} border-b`;
+      // Reservas del día
+      reservasDelDia.forEach(r => {
+        const tr = document.createElement('tr');
+        const canceladaClass = r.estado === 'cancelada' ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
+        tr.className = `${canceladaClass} border-b`;
 
-      const pagadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-      const pagadoText = r.pagado ? 'Pagada' : 'Pendiente';
-      const metodoPagoTexto = r.metodo_pago ? `<br><span class="text-xs text-gray-600">${r.metodo_pago}</span>` : '';
+        const pagadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+        const pagadoText = r.pagado ? '✅ Pagada' : '⏳ Pendiente';
+        const metodoPagoTexto = r.metodo_pago ? `<br><span class="text-xs text-gray-600">${r.metodo_pago}</span>` : '';
 
-      const botonesHTML = r.estado === 'cancelada' 
-        ? '<span class="text-xs text-gray-500 italic">Cancelada</span>'
-        : `
-          <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2">
-            ${r.pagado ? 'Marcar Pendiente' : 'Marcar Pagada'}
-          </button>
-          <button onclick="cancelarReserva('${r.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
-            Cancelar
-          </button>
+        // VISUAL DE PROMOCIÓN
+        const tieneDescuento = r.descuento && r.descuento > 0;
+        const precioHTML = tieneDescuento ? `
+          <div>
+            <p class="text-xs text-gray-500 line-through">$${Math.round(r.precio_base || r.precio)}</p>
+            <p class="text-lg font-bold text-purple-600">$${r.precio}</p>
+            <span class="px-2 py-1 bg-purple-500 text-white text-xs rounded-full">
+              🎉 ${r.descuento}% OFF
+            </span>
+          </div>
+        ` : `
+          <p class="text-lg font-bold text-green-600">$${r.precio}</p>
         `;
 
-      tr.innerHTML = `
-        <td class="px-4 py-3">${formatearFecha(r.fecha)}</td>
-        <td class="px-4 py-3 font-bold">${convertirA12h(r.hora_inicio)}</td>
-        <td class="px-4 py-3">${r.duracion}h</td>
-        <td class="px-4 py-3">${r.cancha}</td>
-        <td class="px-4 py-3">
-          <div>
-            <p class="font-bold">${r.nombre}</p>
-            <p class="text-xs text-gray-600">${r.email}</p>
-            <p class="text-xs text-gray-600">${r.telefono}</p>
-          </div>
-        </td>
-        <td class="px-4 py-3 font-bold text-green-600">$${r.precio}</td>
-        <td class="px-4 py-3">
-          <span class="px-3 py-1 rounded-full text-xs font-bold ${pagadoClass}">
-            ${pagadoText}${metodoPagoTexto}
-          </span>
-        </td>
-        <td class="px-4 py-3">${botonesHTML}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-}
+        const botonesHTML = r.estado === 'cancelada' 
+          ? '<span class="text-xs text-gray-500 italic">❌ Cancelada</span>'
+          : `
+            <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2 mb-1">
+              ${r.pagado ? 'Marcar Pendiente' : '💰 Marcar Pagada'}
+            </button>
+            <button onclick="cancelarReserva('${r.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
+              ❌ Cancelar
+            </button>
+          `;
 
-async function marcarPagada(id, pagar) {
-  if (!pagar) {
-    alert('Función "Marcar Pendiente" en desarrollo');
-    return;
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-blue-600">${convertirA12h(r.hora_inicio)}</td>
+          <td class="px-4 py-3">${r.duracion}h</td>
+          <td class="px-4 py-3 text-center font-bold">🎾 ${r.cancha}</td>
+          <td class="px-4 py-3">
+            <div>
+              <p class="font-bold text-gray-800">${r.nombre}</p>
+              <p class="text-xs text-gray-600">📧 ${r.email}</p>
+              <p class="text-xs text-gray-600">📱 ${r.telefono}</p>
+            </div>
+          </td>
+          <td class="px-4 py-3">${precioHTML}</td>
+          <td class="px-4 py-3">
+            <span class="px-3 py-1 rounded-full text-xs font-bold ${pagadoClass}">
+              ${pagadoText}${metodoPagoTexto}
+            </span>
+          </td>
+          <td class="px-4 py-3">${botonesHTML}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+  };
+
+  // Mostrar futuras
+  renderGrupo(reservasFuturas, 'Próximas Reservas', 'green');
+
+  // Mostrar pasadas si está activado
+  if (state.mostrarPasadas) {
+    renderGrupo(reservasPasadas, 'Reservas Anteriores', 'gray');
   }
 
-  const metodo = prompt('Método de pago:\n1 = Efectivo\n2 = Tarjeta\n3 = Transferencia');
-  
-  if (!metodo || !['1','2','3'].includes(metodo)) {
-    alert('Método inválido');
-    return;
-  }
-
-  try {
-    await fetch(API_BASE + `/api/admin/reservas/${id}/pagar`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': state.token
-      },
-      body: JSON.stringify({ metodoPago: metodo })
-    });
-    await loadAllData();
-  } catch (err) {
-    alert('Error al marcar como pagada');
-  }
-}
-
-async function cancelarReserva(id) {
-  if (!confirm('¿Cancelar esta reserva?\n\nSe mantendrá el registro pero se liberará el horario.')) return;
-  
-  try {
-    await fetch(API_BASE + `/api/admin/reservas/${id}/cancelar`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': state.token
-      }
-    });
-    alert('Reserva cancelada');
-    await loadAllData();
-  } catch (err) {
-    alert('Error al cancelar reserva');
+  // Mostrar canceladas si está activado
+  if (state.mostrarCanceladas) {
+    const canceladasAgrupadas = agruparPorFecha(canceladas);
+    renderGrupo(canceladasAgrupadas, 'Canceladas', 'red');
   }
 }
 
