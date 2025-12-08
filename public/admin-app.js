@@ -1,4 +1,6 @@
-// admin-app.js - Panel Admin v7.0 - Postgres Compatible
+// admin-app.js - Panel Admin v7.1 - Postgres Compatible CORREGIDO
+const API_BASE = '';
+
 let state = {
   reservas: [],
   promociones: [],
@@ -22,7 +24,7 @@ window.onload = () => {
 async function api(path, opts = {}) {
   opts.headers = opts.headers || {};
   if (state.token) opts.headers['x-admin-token'] = state.token;
-  const res = await fetch('/api' + path, opts);
+  const res = await fetch(API_BASE + '/api/admin' + path, opts);
   const json = await res.json().catch(() => null);
   if (!res.ok) throw json || { error: 'API error' };
   return json;
@@ -55,7 +57,7 @@ async function loadAllData() {
       startAutoUpdate();
     }
   } catch (err) {
-    alert('Error: ' + (err.error || 'Token inválido'));
+    alert('Error: ' + (err.msg || 'Token inválido'));
     localStorage.removeItem('admin_token');
     stopAutoUpdate();
   }
@@ -172,15 +174,15 @@ function renderReservas() {
       const canceladaClass = r.estado === 'cancelada' ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
       tr.className = `${canceladaClass} border-b`;
 
-      const pagadoClass = r.estado === 'pagada' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-      const pagadoText = r.estado === 'pagada' ? 'Pagada' : 'Pendiente';
+      const pagadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+      const pagadoText = r.pagado ? 'Pagada' : 'Pendiente';
       const metodoPagoTexto = r.metodo_pago ? `<br><span class="text-xs text-gray-600">${r.metodo_pago}</span>` : '';
 
       const botonesHTML = r.estado === 'cancelada' 
         ? '<span class="text-xs text-gray-500 italic">Cancelada</span>'
         : `
-          <button onclick="togglePago('${r.id}')" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2">
-            ${r.estado === 'pagada' ? 'Marcar Pendiente' : 'Marcar Pagada'}
+          <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2">
+            ${r.pagado ? 'Marcar Pendiente' : 'Marcar Pagada'}
           </button>
           <button onclick="cancelarReserva('${r.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
             Cancelar
@@ -190,10 +192,10 @@ function renderReservas() {
       tr.innerHTML = `
         <td class="px-4 py-3">${r.fecha}</td>
         <td class="px-4 py-3 font-bold">${convertirA12h(r.hora_inicio)}</td>
-        <td class="px-4 py-3">${Math.round(r.duracion_minutos/60)}h</td>
+        <td class="px-4 py-3">${r.duracion}h</td>
         <td class="px-4 py-3">${r.cancha}</td>
         <td class="px-4 py-3">${r.nombre || r.email}</td>
-        <td class="px-4 py-3 font-bold text-green-600">$${r.precio_total}</td>
+        <td class="px-4 py-3 font-bold text-green-600">$${r.precio}</td>
         <td class="px-4 py-3">
           <span class="px-3 py-1 rounded-full text-xs font-bold ${pagadoClass}">
             ${pagadoText}${metodoPagoTexto}
@@ -205,44 +207,115 @@ function renderReservas() {
     });
 }
 
-async function togglePago(id) {
-  const pagado = confirm('¿Marcar como pagada? (Sí = Pagada, No = Pendiente)');
-  const metodo = pagado ? prompt('Método:\n1=Efectivo 2=Tarjeta 3=Transferencia') : null;
+async function marcarPagada(id, pagar) {
+  if (!pagar) {
+    // Marcar como pendiente (no se necesita método de pago)
+    try {
+      await fetch(API_BASE + `/api/admin/reservas/${id}/pagar`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': state.token
+        },
+        body: JSON.stringify({ metodoPago: '1' }) // Temporal para desmarcar
+      });
+      await loadAllData();
+    } catch (err) {
+      alert('Error al actualizar');
+    }
+    return;
+  }
+
+  const metodo = prompt('Método de pago:\n1 = Efectivo\n2 = Tarjeta\n3 = Transferencia');
   
-  if (pagado && (!metodo || !['1','2','3'].includes(metodo))) {
+  if (!metodo || !['1','2','3'].includes(metodo)) {
     alert('Método inválido');
     return;
   }
 
   try {
-    // Temporal: solo log
-    console.log('Toggle pago:', { id, pagado, metodo });
-    alert('Función temporal - marca manual en DB');
+    await fetch(API_BASE + `/api/admin/reservas/${id}/pagar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ metodoPago: metodo })
+    });
     await loadAllData();
   } catch (err) {
-    alert('Error');
+    alert('Error al marcar como pagada');
   }
 }
 
 async function cancelarReserva(id) {
-  if (!confirm('¿Cancelar reserva? (Se mantiene registro, libera horario)')) return;
+  if (!confirm('¿Cancelar esta reserva?\n\nSe mantendrá el registro pero se liberará el horario.')) return;
   
   try {
-    console.log('Cancelar reserva:', id);
-    alert('Función temporal - cancela manual en DB');
+    await fetch(API_BASE + `/api/admin/reservas/${id}/cancelar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      }
+    });
+    alert('Reserva cancelada');
     await loadAllData();
   } catch (err) {
-    alert('Error');
+    alert('Error al cancelar reserva');
   }
 }
 
 function updateStats() {
   const reservasActivas = state.reservas.filter(r => r.estado !== 'cancelada');
   const totalReservas = reservasActivas.length;
-  const totalRecaudado = reservasActivas.reduce((sum, r) => sum + parseFloat(r.precio_total || 0), 0);
-  const pendientesPago = reservasActivas.filter(r => r.estado !== 'pagada').length;
+  const totalRecaudado = reservasActivas.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+  const pendientesPago = reservasActivas.filter(r => !r.pagado).length;
 
   document.getElementById('statReservas').textContent = totalReservas;
   document.getElementById('statRecaudado').textContent = '$' + Math.round(totalRecaudado).toLocaleString();
   document.getElementById('statPendientes').textContent = pendientesPago;
+}
+
+// DESCARGAR REPORTE DÍA
+async function descargarReporteDia() {
+  const fecha = prompt('Fecha (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if (!fecha) return;
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/reporte/dia?fecha=${fecha}`, {
+      headers: { 'x-admin-token': state.token }
+    });
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_${fecha}.csv`;
+    a.click();
+  } catch (err) {
+    alert('Error al descargar reporte');
+  }
+}
+
+// DESCARGAR REPORTE MES
+async function descargarReporteMes() {
+  const mes = prompt('Mes (1-12):', new Date().getMonth() + 1);
+  const año = prompt('Año:', new Date().getFullYear());
+  if (!mes || !año) return;
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/reporte/mes?mes=${mes}&año=${año}`, {
+      headers: { 'x-admin-token': state.token }
+    });
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_${mes}_${año}.csv`;
+    a.click();
+  } catch (err) {
+    alert('Error al descargar reporte');
+  }
 }
