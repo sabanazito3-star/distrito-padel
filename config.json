@@ -1,0 +1,13 @@
+{
+  "precios": {
+    "horaDia": 250,
+    "horaNoche": 400,
+    "cambioTarifa": 16
+  },
+  "sistema": {
+    "numCanchas": 3,
+    "limiteReservasDias": 7,
+    "horaApertura": 8,
+    "horaCierre": 24
+  }
+}

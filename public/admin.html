@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Distrito Padel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-button { transition: all 0.3s; }
+        .tab-button.active { background: linear-gradient(to right, #10b981, #059669); color: white; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-green-600 to-green-700 text-white py-6 shadow-lg">
+            <div class="container mx-auto px-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <img src="logo.jpg" alt="Distrito Padel" class="w-16 h-16 rounded-xl">
+                    <div>
+                        <h1 class="text-3xl font-bold">Panel Admin</h1>
+                        <p class="text-sm text-green-100">Distrito Padel v6.0</p>
+                    </div>
+                </div>
+                <div id="lastUpdate" class="text-sm text-green-100"></div>
+            </div>
+        </header>
+
+        <div class="container mx-auto px-4 py-8">
+            <!-- Token Input -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                <div class="flex gap-4 items-center">
+                    <input type="password" id="adminToken" placeholder="Token de administrador" 
+                           class="flex-1 px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+                    <button onclick="loadAllData()" 
+                            class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg">
+                        Conectar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <p class="text-gray-600 mb-2">Total Reservas Activas</p>
+                    <p id="statReservas" class="text-4xl font-bold text-green-600">0</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <p class="text-gray-600 mb-2">Total Recaudado</p>
+                    <p id="statRecaudado" class="text-4xl font-bold text-blue-600">$0</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <p class="text-gray-600 mb-2">Pendientes de Pago</p>
+                    <p id="statPendientes" class="text-4xl font-bold text-yellow-600">0</p>
+                </div>
+            </div>
+
+            <!-- BOTONES DE REPORTES DE CIERRE -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 mb-6">
+                <h3 class="text-xl font-bold mb-4 text-gray-800">Reportes de Cierre</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="descargarReporteHoy()" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 hover:shadow-lg">
+                        Descargar Cierre de Hoy
+                    </button>
+                    <button onclick="descargarReporteMes()" 
+                            class="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 hover:shadow-lg">
+                        Descargar Cierre Mensual
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mt-3">
+                    Los reportes incluyen totales por método de pago (Efectivo, Tarjeta, Transferencia)
+                </p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-md overflow-x-auto">
+                <button id="tabReservas" onclick="showTab('reservas')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold active whitespace-nowrap">
+                    Reservas
+                </button>
+                <button id="tabPromociones" onclick="showTab('promociones')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Promociones
+                </button>
+                <button id="tabBloqueos" onclick="showTab('bloqueos')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Bloqueos
+                </button>
+                <button id="tabConfig" onclick="showTab('config')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Configuración
+                </button>
+            </div>
+
+            <!-- CONTENIDO RESERVAS -->
+            <div id="contentReservas" class="bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-6 text-green-600">Gestión de Reservas</h2>
+
+                <!-- Formulario Crear Reserva Manual -->
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual (Teléfono/WhatsApp)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha *</label>
+                            <input type="date" id="manualFecha" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Hora Inicio *</label>
+                            <input type="time" id="manualHora" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Duración *</label>
+                            <select id="manualDuracion" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="1">60 minutos (1 hora)</option>
+                                <option value="1.5">90 minutos (1.5 horas)</option>
+                                <option value="2">120 minutos (2 horas)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Cancha *</label>
+                            <select id="manualCancha" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="1">Cancha 1</option>
+                                <option value="2">Cancha 2</option>
+                                <option value="3">Cancha 3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Nombre Cliente *</label>
+                            <input type="text" id="manualNombre" placeholder="Ej: Juan Pérez" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Teléfono</label>
+                            <input type="tel" id="manualTelefono" placeholder="Ej: 5551234567" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">Email (opcional - para enviar confirmación)</label>
+                            <input type="email" id="manualEmail" placeholder="Ej: cliente@email.com" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                    </div>
+                    <button onclick="crearReservaManual()" 
+                            class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">
+                        Crear Reserva Manual
+                    </button>
+                </div>
+
+                <!-- Tabla de Reservas -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-green-100 text-left">
+                                <th class="px-4 py-3 font-bold">Fecha</th>
+                                <th class="px-4 py-3 font-bold">Hora</th>
+                                <th class="px-4 py-3 font-bold">Dur.</th>
+                                <th class="px-4 py-3 font-bold">Cancha</th>
+                                <th class="px-4 py-3 font-bold">Cliente</th>
+                                <th class="px-4 py-3 font-bold">Precio</th>
+                                <th class="px-4 py-3 font-bold">Estado</th>
+                                <th class="px-4 py-3 font-bold">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reservasTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CONTENIDO PROMOCIONES -->
+            <div id="contentPromociones" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-purple-600">Gestión de Promociones</h2>
+
+                <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-purple-700">Crear Nueva Promoción</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha (opcional - dejar vacío para "sin fecha")</label>
+                            <input type="date" id="promoFecha" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Descuento % *</label>
+                            <input type="number" id="promoDescuento" min="1" max="100" placeholder="Ej: 30" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Hora Inicio (opcional)</label>
+                            <input type="time" id="promoHoraInicio" class="w-full px-4 py-2 border-2 rounded-lg">
+                            <p class="text-xs text-gray-500 mt-1">Ej: 18:00 para 6:00 PM</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Hora Fin (opcional)</label>
+                            <input type="time" id="promoHoraFin" class="w-full px-4 py-2 border-2 rounded-lg">
+                            <p class="text-xs text-gray-500 mt-1">Ej: 23:59 para 11:59 PM</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">
+                        <strong>Ejemplos:</strong><br>
+                        • Sin fecha + Sin horas = Promoción permanente todo el día<br>
+                        • Con fecha + Sin horas = Promoción solo ese día completo<br>
+                        • Con fecha + Con horas = Promoción ese día en ese rango horario (Ej: 30% de 6pm a 12am)
+                    </p>
+                    <button onclick="crearPromocion()" 
+                            class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700">
+                        Crear Promoción
+                    </button>
+                </div>
+
+                <div id="promocionesContainer"></div>
+            </div>
+
+            <!-- CONTENIDO BLOQUEOS -->
+            <div id="contentBloqueos" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-red-600">Gestión de Bloqueos</h2>
+
+                <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-red-700">Crear Nuevo Bloqueo</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha *</label>
+                            <input type="date" id="bloqueoFecha" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Cancha (opcional - dejar vacío para todas)</label>
+                            <select id="bloqueoCancha" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="">Todas las canchas</option>
+                                <option value="1">Cancha 1</option>
+                                <option value="2">Cancha 2</option>
+                                <option value="3">Cancha 3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Hora Inicio (opcional - todo el día)</label>
+                            <input type="time" id="bloqueoHoraInicio" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Hora Fin (opcional)</label>
+                            <input type="time" id="bloqueoHoraFin" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">Motivo</label>
+                            <input type="text" id="bloqueoMotivo" placeholder="Ej: Mantenimiento" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                    </div>
+                    <button onclick="crearBloqueo()" 
+                            class="w-full px-6 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700">
+                        Crear Bloqueo
+                    </button>
+                </div>
+
+                <div id="bloqueosContainer"></div>
+            </div>
+
+            <!-- CONTENIDO CONFIGURACIÓN -->
+            <div id="contentConfig" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-600">Configuración de Precios</h2>
+
+                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                    <h3 class="text-xl font-bold mb-4 text-orange-700">Gestión de Tarifas</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Precio Hora Día ($)</label>
+                            <input type="number" id="configPrecioDia" min="0" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                            <p class="text-xs text-gray-500 mt-1">Antes del cambio de tarifa</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Precio Hora Noche ($)</label>
+                            <input type="number" id="configPrecioNoche" min="0" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                            <p class="text-xs text-gray-500 mt-1">Después del cambio de tarifa</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Cambio de Tarifa (hora)</label>
+                            <input type="number" id="configCambioTarifa" min="0" max="24" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                            <p class="text-xs text-gray-500 mt-1">Ej: 16 = 4:00 PM / 24 = Todo igual</p>
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-blue-800">
+                            <strong>Consejo:</strong> Para tener un <strong>solo precio todo el día</strong>, 
+                            pon el mismo valor en "Precio Hora Día" y "Precio Hora Noche", y cambia "Cambio de Tarifa" a <strong>24</strong>.
+                        </p>
+                        <p class="text-sm text-blue-800 mt-2">
+                            <strong>Ejemplo:</strong> $300 en ambos campos + Cambio = 24 → Siempre $300/hora
+                        </p>
+                    </div>
+                    <button onclick="actualizarPrecios()" 
+                            class="w-full px-6 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700">
+                        Guardar Cambios
+                    </button>
+                </div>
+
+                <div id="configActual" class="mt-6 bg-gray-50 rounded-xl p-6">
+                    <h3 class="font-bold text-gray-700 mb-3">Configuración Actual</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div class="bg-white rounded-lg p-3 border">
+                            <p class="text-gray-600">Precio Día</p>
+                            <p class="text-2xl font-bold text-green-600" id="displayPrecioDia">$250</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 border">
+                            <p class="text-gray-600">Precio Noche</p>
+                            <p class="text-2xl font-bold text-blue-600" id="displayPrecioNoche">$400</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 border">
+                            <p class="text-gray-600">Cambio Tarifa</p>
+                            <p class="text-2xl font-bold text-orange-600" id="displayCambio">4:00 PM</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin-app.js"></script>
+</body>
+</html>

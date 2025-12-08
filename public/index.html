@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Distrito Padel - Reserva tu cancha</title>
+  <script src="https://cdn.tailwindcss.com"></script>11:20 p. m. 07/12/2025
+  <style>
+    .time-slot { transition: all 0.2s; cursor: pointer; }
+    .time-slot:hover:not(.occupied):not(.past) { transform: scale(1.05); }
+    .time-slot.selected { background: linear-gradient(to right, #10b981, #059669); color: white; border-color: #059669; }
+    .time-slot.occupied { background: #fee2e2; color: #991b1b; cursor: not-allowed; }
+    .time-slot.past { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+    .time-slot.promo { border-color: #9333ea; border-width: 3px; }
+    .court-btn { transition: all 0.2s; }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+  <!-- AUTH SECTION -->
+  <div id="authSection" class="min-h-screen flex items-center justify-center px-4 py-12">
+    <div class="max-w-md w-full">
+      <!-- Logo y Header -->
+      <div class="text-center mb-8">
+        <img src="logo.jpg" alt="Distrito Padel" class="w-20 h-20 mx-auto mb-4 rounded-xl shadow-lg">
+        <h1 class="text-4xl font-bold text-green-600 mb-2">Distrito Padel</h1>
+        <p class="text-gray-600">Reserva tu pista fácilmente</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-6">
+        <button id="tabLogin" onclick="showTab('login')" 
+          class="flex-1 py-3 px-6 rounded-lg font-bold bg-white text-green-600 shadow">
+          Iniciar Sesión
+        </button>
+        <button id="tabRegister" onclick="showTab('register')" 
+          class="flex-1 py-3 px-6 rounded-lg font-bold text-gray-600">
+          Registro
+        </button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="loginForm" class="bg-white rounded-xl shadow-md p-8">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Iniciar Sesión</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-bold mb-2">Email</label>
+            <input type="email" id="loginEmail" placeholder="tu@email.com" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-bold mb-2">Contraseña</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <button onclick="login()" 
+            class="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg">
+            Entrar
+          </button>
+          <p id="loginMsg" class="text-center text-sm hidden"></p>
+        </div>
+      </div>
+
+      <!-- Register Form -->
+      <div id="registerForm" class="bg-white rounded-xl shadow-md p-8 hidden">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Crear Cuenta</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-bold mb-2">Nombre Completo</label>
+            <input type="text" id="regNombre" placeholder="Juan Pérez" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-bold mb-2">Email</label>
+            <input type="email" id="regEmail" placeholder="tu@email.com" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-bold mb-2">Teléfono</label>
+            <input type="tel" id="regTelefono" placeholder="5551234567" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-bold mb-2">Contraseña</label>
+            <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <button onclick="register()" 
+            class="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg">
+            Registrarse
+          </button>
+          <p id="registerMsg" class="text-center text-sm hidden"></p>
+        </div>
+      </div>
+
+      <!-- Info Precios -->
+      <div class="mt-8 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6">
+        <h3 class="font-bold text-gray-800 mb-4">Tarifas</h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div class="bg-yellow-100 rounded-lg p-3">
+            <p class="font-bold text-yellow-800">Horario Matutino</p>
+            <p class="text-2xl font-bold text-yellow-700">$250 / hora</p>
+            <p class="text-xs text-yellow-700">8:00 AM - 3:59 PM</p>
+          </div>
+          <div class="bg-blue-100 rounded-lg p-3">
+            <p class="font-bold text-blue-800">Horario Tarde-Noche</p>
+            <p class="text-2xl font-bold text-blue-700">$400 / hora</p>
+            <p class="text-xs text-blue-700">4:00 PM - 12:00 AM</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-600 mt-3">Nota: Si tu reserva cruza las 4:00 PM, el precio se calcula proporcionalmente según el tiempo en cada horario.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOKING SECTION -->
+  <div id="bookingSection" class="hidden min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-green-600 to-green-700 text-white py-6 shadow-lg">
+      <div class="container mx-auto px-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="logo.jpg" alt="Distrito Padel" class="w-14 h-14 rounded-xl">
+          <div>
+            <h1 class="text-2xl font-bold">Distrito Padel</h1>
+            <p class="text-sm text-green-100">Sistema de Reservas v6.0</p>
+          </div>
+        </div>
+        <div id="userInfo" class="hidden text-right">
+          <p class="font-bold" id="userName"></p>
+          <p class="text-sm text-green-100" id="userEmail"></p>
+        </div>
+      </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-8">
+      <!-- Banner Promoción -->
+      <div id="promoBanner" class="hidden bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl p-6 mb-6 shadow-lg">
+        <p class="text-2xl font-bold">Promoción Activa!</p>
+        <p id="promoText" class="text-lg mt-2"></p>
+      </div>
+
+      <!-- Botones Superiores -->
+      <div class="flex gap-4 mb-6">
+        <button onclick="verMisReservas()" 
+          class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">
+          Mis Reservas
+        </button>
+        <button onclick="logout()" 
+          class="flex-1 py-3 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700">
+          Cerrar Sesión
+        </button>
+      </div>
+
+      <!-- Selector de Fecha y Duración -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4 text-green-600">Selecciona Fecha y Duración</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-bold mb-2">Fecha</label>
+            <input type="date" id="fechaInput" onchange="loadAvailability()" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-bold mb-2">Duración</label>
+            <select id="duracionInput" onchange="loadAvailability()" 
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              <option value="1">60 minutos (1 hora)</option>
+              <option value="1.5">90 minutos (1.5 horas)</option>
+              <option value="2">120 minutos (2 horas)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selector de Cancha -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4 text-green-600">Selecciona Cancha</h2>
+        <div id="courtButtons" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+      </div>
+
+      <!-- Horarios Disponibles -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4 text-green-600">Horarios Disponibles</h2>
+        
+        <!-- Leyenda de Colores -->
+        <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-4">
+          <h3 class="font-bold text-gray-700 mb-3"> </h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div class="flex items-center gap-2">
+              <div class="w-10 h-10 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center text-xs font-bold">
+           
+              </div>
+              <span class="text-gray-700 font-medium">Disponible</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-10 h-10 bg-red-200 border-2 border-red-300 rounded-lg flex items-center justify-center text-xs font-bold text-red-700">
+                
+              </div>
+              <span class="text-gray-700 font-medium">Ocupado</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-10 h-10 bg-gray-200 border-2 border-gray-300 rounded-lg flex items-center justify-center text-xs font-bold text-gray-500">
+                
+              </div>
+              <span class="text-gray-700 font-medium">Hora pasada</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-10 h-10 bg-white border-4 border-purple-500 rounded-lg flex items-center justify-center text-xs font-bold text-purple-600">
+                
+              </div>
+              <span class="text-gray-700 font-medium">Con promoción</span>
+            </div>
+          </div>
+        </div>
+        
+        <div id="availabilityGrid" class="grid grid-cols-3 md:grid-cols-6 gap-2"></div>
+      </div>
+
+      <!-- Info de Precio -->
+      <div id="precioInfo" class="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-6" style="display:none;">
+        <p id="precioTexto" class="text-2xl font-bold text-green-700"></p>
+        <p id="precioDetalle" class="text-sm text-gray-600 mt-2"></p>
+      </div>
+
+      <!-- Botón Reservar -->
+      <button id="reservarBtn" onclick="crearReserva()" disabled 
+        class="w-full py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold text-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+        Confirmar Reserva
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Mis Reservas -->
+  <div id="misReservasModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-green-600">Mis Reservas</h2>
+        <button onclick="cerrarMisReservas()" class="text-gray-500 hover:text-gray-700 text-3xl">×</button>
+      </div>
+      <div id="misReservasList"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
