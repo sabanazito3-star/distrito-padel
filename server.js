@@ -1,4 +1,4 @@
-// server.js - Distrito Padel v6.1 con Postgres + Resend - ESM COMPLETO
+// server.js - Distrito Padel v6.2 con Postgres + Resend - ESM COMPLETO
 import 'dotenv/config';
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -127,7 +127,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     try {
       await resend.emails.send({
-        from: 'Distrito Padel <noreply@distritopadel.lat>',
+        from: 'Distrito Padel <reservas@distritopadel.lat>',
         to: [email],
         subject: 'Bienvenido a Distrito Padel',
         html: `<h2>Hola ${nombre}</h2><p>Tu cuenta ha sido creada exitosamente.</p>`
@@ -178,7 +178,7 @@ app.get('/api/reservas', async (req, res) => {
   res.json(db.reservas);
 });
 
-//crear reserva
+// CREAR RESERVA (CORREGIDO)
 app.post('/api/reservas/crear', async (req, res) => {
   const { token, fecha, hora, duracion, cancha } = req.body;
 
@@ -188,7 +188,7 @@ app.post('/api/reservas/crear', async (req, res) => {
 
   try {
     // Verificar usuario
-    const userRes = await db.query('SELECT * FROM usuarios WHERE token = $1', [token]);
+    const userRes = await pool.query('SELECT * FROM usuarios WHERE token = $1', [token]);
     if (userRes.rows.length === 0) {
       return res.json({ ok: false, msg: 'Token inválido' });
     }
@@ -209,60 +209,49 @@ app.post('/api/reservas/crear', async (req, res) => {
       return res.json({ ok: false, msg: 'Solo puedes reservar hasta 7 días adelante' });
     }
 
-    // Verificar disponibilidad
-    const reservaExistente = await db.query(
-      `SELECT * FROM reservas 
-       WHERE fecha = $1 AND cancha = $2 AND estado != 'cancelada'
-       AND (
-         (hora_inicio <= $3 AND hora_inicio + (duracion || ' hours')::interval > $3::time)
-         OR (hora_inicio < ($3::time + ($4 || ' hours')::interval) AND hora_inicio + (duracion || ' hours')::interval >= ($3::time + ($4 || ' hours')::interval))
-         OR (hora_inicio >= $3 AND hora_inicio < ($3::time + ($4 || ' hours')::interval))
-       )`,
-      [fecha, cancha, hora, duracion]
-    );
-
-    if (reservaExistente.rows.length > 0) {
-      return res.json({ ok: false, msg: 'Horario no disponible' });
-    }
-
-    // Verificar bloqueos
-    const bloqueoRes = await db.query(
-      `SELECT * FROM bloqueos 
-       WHERE fecha = $1 AND (cancha = $2 OR cancha IS NULL)`,
+    // Verificar disponibilidad (simplificado)
+    const reservasExistentes = await pool.query(
+      `SELECT hora_inicio, duracion FROM reservas 
+       WHERE fecha = $1 AND cancha = $2 AND estado != 'cancelada'`,
       [fecha, cancha]
     );
 
-    if (bloqueoRes.rows.length > 0) {
-      const bloqueo = bloqueoRes.rows[0];
-      if (!bloqueo.hora_inicio && !bloqueo.hora_fin) {
-        return res.json({ ok: false, msg: 'Cancha bloqueada ese día' });
+    // Verificar overlap manual
+    const [horaNum, minNum] = hora.split(':').map(Number);
+    const inicioMin = horaNum * 60 + minNum;
+    const finMin = inicioMin + (parseFloat(duracion) * 60);
+
+    for (const r of reservasExistentes.rows) {
+      const [rHora, rMin] = r.hora_inicio.split(':').map(Number);
+      const rInicioMin = rHora * 60 + (rMin || 0);
+      const rFinMin = rInicioMin + (parseFloat(r.duracion) * 60);
+      
+      if (inicioMin < rFinMin && finMin > rInicioMin) {
+        return res.json({ ok: false, msg: 'Horario no disponible' });
       }
     }
 
     // Calcular precio base
-    const [horaNum, minNum] = hora.split(':').map(Number);
     const horaDecimal = horaNum + (minNum / 60);
-    const config = await loadConfig();
     const cambioTarifa = config.precios.cambioTarifa;
     
     let precioBase = 0;
-    let horasRestantes = parseFloat(duracion);
-    let horaActual = horaDecimal;
+    const duracionNum = parseFloat(duracion);
     
-    while (horasRestantes > 0) {
-      const precioHora = horaActual < cambioTarifa ? config.precios.horaDia : config.precios.horaNoche;
-      const horasEnTarifa = Math.min(horasRestantes, 
-        horaActual < cambioTarifa ? cambioTarifa - horaActual : 24 - horaActual
-      );
-      precioBase += precioHora * horasEnTarifa;
-      horasRestantes -= horasEnTarifa;
-      horaActual += horasEnTarifa;
+    if (horaDecimal < cambioTarifa && (horaDecimal + duracionNum) <= cambioTarifa) {
+      precioBase = duracionNum * config.precios.horaDia;
+    } else if (horaDecimal >= cambioTarifa) {
+      precioBase = duracionNum * config.precios.horaNoche;
+    } else {
+      const horasAntes = cambioTarifa - horaDecimal;
+      const horasDespues = duracionNum - horasAntes;
+      precioBase = (horasAntes * config.precios.horaDia) + (horasDespues * config.precios.horaNoche);
     }
 
-    // APLICAR PROMOCIÓN
+    // Buscar promoción
     let descuento = 0;
-    const promoRes = await db.query(
-      `SELECT * FROM promociones 
+    const promoRes = await pool.query(
+      `SELECT descuento, hora_inicio, hora_fin FROM promociones 
        WHERE activa = true 
        AND (fecha IS NULL OR fecha = $1)
        ORDER BY descuento DESC
@@ -273,17 +262,16 @@ app.post('/api/reservas/crear', async (req, res) => {
     if (promoRes.rows.length > 0) {
       const promo = promoRes.rows[0];
       
-      // Si tiene horario específico, verificar
       if (promo.hora_inicio && promo.hora_fin) {
-        const promoInicioMin = parseInt(promo.hora_inicio.split(':')[0]) * 60 + parseInt(promo.hora_inicio.split(':')[1] || 0);
-        const promoFinMin = parseInt(promo.hora_fin.split(':')[0]) * 60 + parseInt(promo.hora_fin.split(':')[1] || 0);
-        const horaReservaMin = horaNum * 60 + minNum;
+        const [pH, pM] = promo.hora_inicio.split(':').map(Number);
+        const [pHf, pMf] = promo.hora_fin.split(':').map(Number);
+        const promoInicioMin = pH * 60 + (pM || 0);
+        const promoFinMin = pHf * 60 + (pMf || 0);
         
-        if (horaReservaMin >= promoInicioMin && horaReservaMin < promoFinMin) {
+        if (inicioMin >= promoInicioMin && inicioMin < promoFinMin) {
           descuento = promo.descuento;
         }
       } else {
-        // Sin horario = aplica todo el día
         descuento = promo.descuento;
       }
     }
@@ -292,17 +280,17 @@ app.post('/api/reservas/crear', async (req, res) => {
 
     // Crear reserva
     const id = crypto.randomUUID();
-    await db.query(
+    await pool.query(
       `INSERT INTO reservas 
-       (id, nombre, email, telefono, cancha, fecha, hora_inicio, duracion, precio, descuento, precio_base, estado, pagado, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pendiente', false, NOW())`,
-      [id, user.nombre, user.email, user.telefono, cancha, fecha, hora, duracion, precioFinal, descuento, precioBase]
+       (id, nombre, email, telefono, cancha, fecha, hora_inicio, duracion, precio, descuento, precio_base, estado, pagado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pendiente', false)`,
+      [id, user.nombre, user.email, user.telefono, cancha, fecha, hora, duracion, precioFinal, descuento, Math.round(precioBase)]
     );
 
     // Enviar email
     try {
       await resend.emails.send({
-        from: 'Distrito Padel <onboarding@resend.dev>',
+        from: 'Distrito Padel <reservas@distritopadel.lat>',
         to: user.email,
         subject: '✅ Reserva Confirmada - Distrito Padel',
         html: `
@@ -328,7 +316,7 @@ app.post('/api/reservas/crear', async (req, res) => {
 
   } catch (err) {
     console.error('Error crear reserva:', err);
-    res.json({ ok: false, msg: 'Error en el servidor' });
+    res.status(500).json({ ok: false, msg: 'Error: ' + err.message });
   }
 });
 
@@ -716,7 +704,7 @@ app.get('/api/test', async (req, res) => {
 // INICIAR SERVIDOR
 app.listen(PORT, '0.0.0.0', async () => {
   db = await loadData();
-  console.log(`Distrito Padel v6.1 ESM corriendo en puerto ${PORT}`);
+  console.log(`Distrito Padel v6.2 ESM corriendo en puerto ${PORT}`);
   console.log(`Usuarios: ${Object.keys(db.usuarios).length}`);
   console.log(`Reservas: ${db.reservas.length}`);
   console.log(`Promociones: ${db.promociones.length}`);
