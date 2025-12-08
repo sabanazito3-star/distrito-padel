@@ -1,10 +1,9 @@
-// En producción Railway inyecta las variables directamente
-// Solo usar dotenv en desarrollo local
-console.log('=== DEBUG VARIABLES ===');
-console.log('ADMIN_TOKEN:', process.env.ADMIN_TOKEN);
-console.log('EMAIL_USER:', process.env.EMAIL_USER);
-console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '***configurado***' : 'NO CONFIGURADO');
-console.log('======================');
+// DEBUG
+console.log('=== DEBUG VARIABLES (IGNORANDO process.env) ===');
+console.log('process.env.ADMIN_TOKEN:', process.env.ADMIN_TOKEN);
+console.log('process.env.EMAIL_USER:', process.env.EMAIL_USER);
+console.log('process.env.EMAIL_PASS:', process.env.EMAIL_PASS ? '***configurado***' : 'NO CONFIGURADO');
+console.log('===============================================');
 
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -21,6 +20,12 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ======= CONFIG FIJA PARA EVITAR PROBLEMAS DE ENV =======
+const ADMIN_TOKEN = 'distritoadmin23';         // <-- ESTE usarás en admin.html
+const EMAIL_USER = 'dist.padel@gmail.com';     // <-- TU CORREO
+const EMAIL_PASS = 'pjxwwmyhjkaituqr';         // <-- CONTRASEÑA DE APP (16 chars)
+// ========================================================
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
@@ -29,8 +34,8 @@ app.use(express.static('public'));
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: EMAIL_USER,
+    pass: EMAIL_PASS
   }
 });
 
@@ -41,16 +46,26 @@ const CONFIG_FILE = 'config.json';
 // Inicializar archivos si no existen
 function inicializarArchivos() {
   if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ usuarios: [], reservas: [], promociones: [], bloqueos: [] }, null, 2));
+    fs.writeFileSync(
+      DATA_FILE,
+      JSON.stringify({ usuarios: [], reservas: [], promociones: [], bloqueos: [] }, null, 2)
+    );
   }
   if (!fs.existsSync(CONFIG_FILE)) {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ 
-      precios: { 
-        horaDia: 250, 
-        horaNoche: 400, 
-        cambioTarifa: 16 
-      } 
-    }, null, 2));
+    fs.writeFileSync(
+      CONFIG_FILE,
+      JSON.stringify(
+        {
+          precios: {
+            horaDia: 250,
+            horaNoche: 400,
+            cambioTarifa: 16
+          }
+        },
+        null,
+        2
+      )
+    );
   }
 }
 
@@ -81,7 +96,7 @@ async function generarId() {
 // Verificar token de admin
 function verificarAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (token !== process.env.ADMIN_TOKEN) {
+  if (token !== ADMIN_TOKEN) {
     return res.status(403).json({ error: 'No autorizado' });
   }
   next();
@@ -257,7 +272,7 @@ function calcularPrecio(hora, duracion, precios, promociones, fecha) {
 
 function enviarEmailConfirmacion(email, reserva) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: EMAIL_USER,
     to: email,
     subject: 'Confirmación de Reserva - Distrito Padel',
     html: `
@@ -271,7 +286,7 @@ function enviarEmailConfirmacion(email, reserva) {
     `
   };
 
-  transporter.sendMail(mailOptions, (err) => {
+  transporter.sendMail(mailOptions, err => {
     if (err) console.error('Error al enviar email:', err);
   });
 }
@@ -339,10 +354,10 @@ app.get('/api/admin/config', verificarAdmin, (req, res) => {
 app.post('/api/admin/config/precios', verificarAdmin, (req, res) => {
   const { horaDia, horaNoche, cambioTarifa } = req.body;
   const config = leerConfig();
-  
+
   config.precios = { horaDia, horaNoche, cambioTarifa };
   guardarConfig(config);
-  
+
   res.json({ ok: true, precios: config.precios });
 });
 
