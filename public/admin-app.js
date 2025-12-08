@@ -208,7 +208,13 @@ function renderReservas() {
         <td class="px-4 py-3 font-bold">${convertirA12h(r.hora_inicio)}</td>
         <td class="px-4 py-3">${r.duracion}h</td>
         <td class="px-4 py-3">${r.cancha}</td>
-        <td class="px-4 py-3">${r.nombre || r.email}</td>
+        <td class="px-4 py-3">
+          <div>
+            <p class="font-bold">${r.nombre}</p>
+            <p class="text-xs text-gray-600">${r.email}</p>
+            <p class="text-xs text-gray-600">${r.telefono}</p>
+          </div>
+        </td>
         <td class="px-4 py-3 font-bold text-green-600">$${r.precio}</td>
         <td class="px-4 py-3">
           <span class="px-3 py-1 rounded-full text-xs font-bold ${pagadoClass}">
