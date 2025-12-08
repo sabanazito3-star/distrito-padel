@@ -58,6 +58,25 @@ function mostrarDashboard() {
   dateInput.max = maxDate.toISOString().split('T')[0];
   dateInput.value = today.toISOString().split('T')[0];
   
+  // NUEVO: Validar cambio de fecha
+  dateInput.addEventListener('change', function() {
+    const selectedDate = new Date(this.value + 'T00:00:00');
+    const minDate = new Date(today.toISOString().split('T')[0] + 'T00:00:00');
+    const maxDateLimit = new Date(maxDate.toISOString().split('T')[0] + 'T00:00:00');
+    
+    if (selectedDate < minDate) {
+      alert('No puedes reservar en fechas pasadas');
+      this.value = today.toISOString().split('T')[0];
+      return;
+    }
+    
+    if (selectedDate > maxDateLimit) {
+      alert('Solo puedes reservar hasta 7 días adelante');
+      this.value = maxDate.toISOString().split('T')[0];
+      return;
+    }
+  });
+  
   cargarPromociones();
   cargarBloqueos();
 }

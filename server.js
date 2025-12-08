@@ -178,89 +178,157 @@ app.get('/api/reservas', async (req, res) => {
   res.json(db.reservas);
 });
 
-// CREAR RESERVA
+//crear reserva
 app.post('/api/reservas/crear', async (req, res) => {
+  const { token, fecha, hora, duracion, cancha } = req.body;
+
+  if (!token || !fecha || !hora || !duracion || !cancha) {
+    return res.json({ ok: false, msg: 'Faltan datos' });
+  }
+
   try {
-    const { token, fecha, hora, duracion, cancha } = req.body;
-
-    const user = await pool.query('SELECT * FROM usuarios WHERE token = $1', [token]);
-    if (user.rows.length === 0) {
-      return res.status(401).json({ ok: false, msg: 'Token inválido' });
+    // Verificar usuario
+    const userRes = await db.query('SELECT * FROM usuarios WHERE token = $1', [token]);
+    if (userRes.rows.length === 0) {
+      return res.json({ ok: false, msg: 'Token inválido' });
     }
 
-    const usuario = user.rows[0];
+    const user = userRes.rows[0];
 
-    // Calcular precio
-    const [h, m] = hora.split(':').map(Number);
-    const inicioMin = h * 60 + m;
-    const finMin = inicioMin + duracion * 60;
-    const cambioMin = config.precios.cambioTarifa * 60;
-
-    let precioBase = 0;
-    if (finMin <= cambioMin) {
-      precioBase = config.precios.horaDia * duracion;
-    } else if (inicioMin >= cambioMin) {
-      precioBase = config.precios.horaNoche * duracion;
-    } else {
-      const antesMin = cambioMin - inicioMin;
-      const despuesMin = finMin - cambioMin;
-      precioBase = (antesMin / 60 * config.precios.horaDia) + (despuesMin / 60 * config.precios.horaNoche);
+    // Verificar límite de 7 días
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaReserva = new Date(fecha + 'T00:00:00');
+    const diffDias = Math.ceil((fechaReserva - hoy) / (1000 * 60 * 60 * 24));
+    
+    if (diffDias < 0) {
+      return res.json({ ok: false, msg: 'No puedes reservar en fechas pasadas' });
+    }
+    
+    if (diffDias > 7) {
+      return res.json({ ok: false, msg: 'Solo puedes reservar hasta 7 días adelante' });
     }
 
-    let precioFinal = Math.round(precioBase);
-    let descuento = 0;
-
-    // Verificar promoción
-    const promo = await pool.query(
-      'SELECT * FROM promociones WHERE fecha = $1 AND activa = true',
-      [fecha]
+    // Verificar disponibilidad
+    const reservaExistente = await db.query(
+      `SELECT * FROM reservas 
+       WHERE fecha = $1 AND cancha = $2 AND estado != 'cancelada'
+       AND (
+         (hora_inicio <= $3 AND hora_inicio + (duracion || ' hours')::interval > $3::time)
+         OR (hora_inicio < ($3::time + ($4 || ' hours')::interval) AND hora_inicio + (duracion || ' hours')::interval >= ($3::time + ($4 || ' hours')::interval))
+         OR (hora_inicio >= $3 AND hora_inicio < ($3::time + ($4 || ' hours')::interval))
+       )`,
+      [fecha, cancha, hora, duracion]
     );
 
-    if (promo.rows.length > 0) {
-      const p = promo.rows[0];
-      if (!p.hora_inicio || !p.hora_fin) {
-        descuento = p.descuento;
-        precioFinal = Math.round(precioBase * (1 - descuento / 100));
-      } else {
-        const horaMin = inicioMin;
-        const promoInicio = parseInt(p.hora_inicio.split(':')[0]) * 60 + parseInt(p.hora_inicio.split(':')[1]);
-        const promoFin = parseInt(p.hora_fin.split(':')[0]) * 60 + parseInt(p.hora_fin.split(':')[1]);
-        if (horaMin >= promoInicio && horaMin < promoFin) {
-          descuento = p.descuento;
-          precioFinal = Math.round(precioBase * (1 - descuento / 100));
-        }
+    if (reservaExistente.rows.length > 0) {
+      return res.json({ ok: false, msg: 'Horario no disponible' });
+    }
+
+    // Verificar bloqueos
+    const bloqueoRes = await db.query(
+      `SELECT * FROM bloqueos 
+       WHERE fecha = $1 AND (cancha = $2 OR cancha IS NULL)`,
+      [fecha, cancha]
+    );
+
+    if (bloqueoRes.rows.length > 0) {
+      const bloqueo = bloqueoRes.rows[0];
+      if (!bloqueo.hora_inicio && !bloqueo.hora_fin) {
+        return res.json({ ok: false, msg: 'Cancha bloqueada ese día' });
       }
     }
 
-    const id = nanoid();
-    await pool.query(
-      `INSERT INTO reservas (id, nombre, email, telefono, cancha, fecha, hora_inicio, duracion, precio, descuento, precio_base, estado, pagado)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pendiente',false)`,
-      [id, usuario.nombre, usuario.email, usuario.telefono, cancha, fecha, hora, duracion, precioFinal, descuento, precioBase]
-    );
-
-    db = await loadData();
-
-    try {
-      await resend.emails.send({
-        from: 'Distrito Padel <noreply@distritopadel.lat>',
-        to: [usuario.email],
-        subject: `Reserva Confirmada - Cancha ${cancha}`,
-        html: `<h2>Reserva Confirmada ${usuario.nombre}</h2>
-               <p><strong>Cancha:</strong> ${cancha}</p>
-               <p><strong>Fecha:</strong> ${fecha}</p>
-               <p><strong>Hora:</strong> ${hora}</p>
-               <p><strong>Duración:</strong> ${duracion}h</p>
-               <p><strong>Total:</strong> $${precioFinal} MXN</p>`
-      });
-    } catch (err) {
-      console.error('Error email:', err.message);
+    // Calcular precio base
+    const [horaNum, minNum] = hora.split(':').map(Number);
+    const horaDecimal = horaNum + (minNum / 60);
+    const config = await loadConfig();
+    const cambioTarifa = config.precios.cambioTarifa;
+    
+    let precioBase = 0;
+    let horasRestantes = parseFloat(duracion);
+    let horaActual = horaDecimal;
+    
+    while (horasRestantes > 0) {
+      const precioHora = horaActual < cambioTarifa ? config.precios.horaDia : config.precios.horaNoche;
+      const horasEnTarifa = Math.min(horasRestantes, 
+        horaActual < cambioTarifa ? cambioTarifa - horaActual : 24 - horaActual
+      );
+      precioBase += precioHora * horasEnTarifa;
+      horasRestantes -= horasEnTarifa;
+      horaActual += horasEnTarifa;
     }
 
-    res.json({ ok: true });
+    // APLICAR PROMOCIÓN
+    let descuento = 0;
+    const promoRes = await db.query(
+      `SELECT * FROM promociones 
+       WHERE activa = true 
+       AND (fecha IS NULL OR fecha = $1)
+       ORDER BY descuento DESC
+       LIMIT 1`,
+      [fecha]
+    );
+
+    if (promoRes.rows.length > 0) {
+      const promo = promoRes.rows[0];
+      
+      // Si tiene horario específico, verificar
+      if (promo.hora_inicio && promo.hora_fin) {
+        const promoInicioMin = parseInt(promo.hora_inicio.split(':')[0]) * 60 + parseInt(promo.hora_inicio.split(':')[1] || 0);
+        const promoFinMin = parseInt(promo.hora_fin.split(':')[0]) * 60 + parseInt(promo.hora_fin.split(':')[1] || 0);
+        const horaReservaMin = horaNum * 60 + minNum;
+        
+        if (horaReservaMin >= promoInicioMin && horaReservaMin < promoFinMin) {
+          descuento = promo.descuento;
+        }
+      } else {
+        // Sin horario = aplica todo el día
+        descuento = promo.descuento;
+      }
+    }
+
+    const precioFinal = Math.round(precioBase * (1 - descuento / 100));
+
+    // Crear reserva
+    const id = crypto.randomUUID();
+    await db.query(
+      `INSERT INTO reservas 
+       (id, nombre, email, telefono, cancha, fecha, hora_inicio, duracion, precio, descuento, precio_base, estado, pagado, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pendiente', false, NOW())`,
+      [id, user.nombre, user.email, user.telefono, cancha, fecha, hora, duracion, precioFinal, descuento, precioBase]
+    );
+
+    // Enviar email
+    try {
+      await resend.emails.send({
+        from: 'Distrito Padel <onboarding@resend.dev>',
+        to: user.email,
+        subject: '✅ Reserva Confirmada - Distrito Padel',
+        html: `
+          <h2>¡Reserva Confirmada!</h2>
+          <p>Hola ${user.nombre},</p>
+          <p>Tu reserva ha sido confirmada:</p>
+          <ul>
+            <li><strong>Cancha:</strong> ${cancha}</li>
+            <li><strong>Fecha:</strong> ${fecha}</li>
+            <li><strong>Hora:</strong> ${hora}</li>
+            <li><strong>Duración:</strong> ${duracion}h</li>
+            ${descuento > 0 ? `<li><strong>Descuento aplicado:</strong> ${descuento}%</li>` : ''}
+            <li><strong>Total a pagar:</strong> $${precioFinal} MXN</li>
+          </ul>
+          <p>Te esperamos!</p>
+        `
+      });
+    } catch (emailErr) {
+      console.error('Error email:', emailErr);
+    }
+
+    res.json({ ok: true, msg: 'Reserva creada', reservaId: id, precio: precioFinal, descuento });
+
   } catch (err) {
-    console.error('Reserva error:', err.message);
-    res.status(500).json({ ok: false, msg: 'Error al crear reserva' });
+    console.error('Error crear reserva:', err);
+    res.json({ ok: false, msg: 'Error en el servidor' });
   }
 });
 
