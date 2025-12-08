@@ -170,24 +170,38 @@ function renderReservas() {
   const activas = state.reservas.filter(r => r.estado !== 'cancelada');
   const canceladas = state.reservas.filter(r => r.estado === 'cancelada');
 
+  // Función auxiliar para extraer fecha ISO
+  const obtenerFechaISO = (fechaStr) => {
+    if (!fechaStr) return null;
+    if (typeof fechaStr === 'string' && fechaStr.includes('T')) {
+      return fechaStr.split('T')[0]; // "2025-12-08T00:00:00.000Z" -> "2025-12-08"
+    }
+    return fechaStr; // Ya está en formato "YYYY-MM-DD"
+  };
+
   // Separar por fecha (HOY y futuras VS pasadas)
   const futuras = activas.filter(r => {
-    const fechaReserva = new Date(r.fecha + 'T00:00:00');
+    const fechaISO = obtenerFechaISO(r.fecha);
+    if (!fechaISO) return false;
+    const fechaReserva = new Date(fechaISO + 'T00:00:00');
     fechaReserva.setHours(0, 0, 0, 0);
-    return fechaReserva >= hoy; // >= incluye HOY
+    return fechaReserva >= hoy;
   });
 
   const pasadas = activas.filter(r => {
-    const fechaReserva = new Date(r.fecha + 'T00:00:00');
+    const fechaISO = obtenerFechaISO(r.fecha);
+    if (!fechaISO) return false;
+    const fechaReserva = new Date(fechaISO + 'T00:00:00');
     fechaReserva.setHours(0, 0, 0, 0);
-    return fechaReserva < hoy; // < solo días anteriores
+    return fechaReserva < hoy;
   });
 
   // Agrupar por día
   const agruparPorFecha = (reservas) => {
     const grupos = {};
     reservas.forEach(r => {
-      const fechaISO = r.fecha.split('T')[0]; // YYYY-MM-DD
+      const fechaISO = obtenerFechaISO(r.fecha);
+      if (!fechaISO) return;
       if (!grupos[fechaISO]) grupos[fechaISO] = [];
       grupos[fechaISO].push(r);
     });
@@ -239,22 +253,19 @@ function renderReservas() {
 
   // Renderizar grupo de reservas
   const renderGrupo = (grupos, titulo, colorClass) => {
-    // Ordenar fechas de más reciente a más antigua
     const fechasOrdenadas = Object.keys(grupos).sort((a, b) => {
-      return new Date(b) - new Date(a); // DESC: más reciente primero
+      return new Date(b) - new Date(a);
     });
 
     fechasOrdenadas.forEach(fechaISO => {
       const reservasDelDia = grupos[fechaISO].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
       
-      // Formatear fecha bonita
       const fecha = new Date(fechaISO + 'T00:00:00');
       const esHoy = fecha.getTime() === hoy.getTime();
       const diaSemana = fecha.toLocaleDateString('es-MX', { weekday: 'long' });
       const fechaFormateada = formatearFecha(fechaISO);
       const etiquetaHoy = esHoy ? ' 🔥 HOY' : '';
       
-      // Header de día
       const headerDia = document.createElement('tr');
       headerDia.className = `bg-${colorClass}-100 border-t-2 border-${colorClass}-300`;
       headerDia.innerHTML = `
@@ -264,17 +275,15 @@ function renderReservas() {
       `;
       tbody.appendChild(headerDia);
 
-      // Reservas del día
       reservasDelDia.forEach(r => {
         const tr = document.createElement('tr');
         const canceladaClass = r.estado === 'cancelada' ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
         tr.className = `${canceladaClass} border-b`;
 
         const pagadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-        const pagadoText = r.pagado ? '✅ Pagada' : '⏳ Pendiente';
+        const pagadoText = r.pagado ? 'Pagada' : 'Pendiente';
         const metodoPagoTexto = r.metodo_pago ? `<br><span class="text-xs text-gray-600">${r.metodo_pago}</span>` : '';
 
-        // VISUAL DE PROMOCIÓN
         const tieneDescuento = r.descuento && r.descuento > 0;
         const precioHTML = tieneDescuento ? `
           <div>
@@ -289,25 +298,25 @@ function renderReservas() {
         `;
 
         const botonesHTML = r.estado === 'cancelada' 
-          ? '<span class="text-xs text-gray-500 italic">❌ Cancelada</span>'
+          ? '<span class="text-xs text-gray-500 italic">Cancelada</span>'
           : `
             <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2 mb-1">
               ${r.pagado ? 'Marcar Pendiente' : '💰 Marcar Pagada'}
             </button>
             <button onclick="cancelarReserva('${r.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
-              ❌ Cancelar
+               Cancelar
             </button>
           `;
 
         tr.innerHTML = `
           <td class="px-4 py-3 font-bold text-blue-600">${convertirA12h(r.hora_inicio)}</td>
           <td class="px-4 py-3">${r.duracion}h</td>
-          <td class="px-4 py-3 text-center font-bold">🎾 ${r.cancha}</td>
+          <td class="px-4 py-3 text-center font-bold"> ${r.cancha}</td>
           <td class="px-4 py-3">
             <div>
               <p class="font-bold text-gray-800">${r.nombre}</p>
-              <p class="text-xs text-gray-600">📧 ${r.email}</p>
-              <p class="text-xs text-gray-600">📱 ${r.telefono}</p>
+              <p class="text-xs text-gray-600"> ${r.email}</p>
+              <p class="text-xs text-gray-600"> ${r.telefono}</p>
             </div>
           </td>
           <td class="px-4 py-3">${precioHTML}</td>
@@ -323,15 +332,12 @@ function renderReservas() {
     });
   };
 
-  // Mostrar futuras (HOY + posteriores) - ORDEN DESC (más reciente primero)
   renderGrupo(reservasFuturas, 'Hoy y Próximas Reservas', 'green');
 
-  // Mostrar pasadas si está activado - ORDEN DESC
   if (state.mostrarPasadas) {
     renderGrupo(reservasPasadas, 'Reservas Anteriores', 'gray');
   }
 
-  // Mostrar canceladas si está activado - ORDEN DESC
   if (state.mostrarCanceladas) {
     const canceladasAgrupadas = agruparPorFecha(canceladas);
     renderGrupo(canceladasAgrupadas, 'Canceladas', 'red');
