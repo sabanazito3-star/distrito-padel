@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v6.4 - Fix reservas hasta 12:00 AM
+// app.js - Frontend Distrito Padel v6.5 - Fix promociones con fecha y horario
 const API_BASE = '';
 
 let state = {
@@ -178,6 +178,7 @@ async function cargarPromociones() {
   try {
     const res = await fetch(API_BASE + '/api/promociones');
     state.promociones = await res.json();
+    console.log('Promociones cargadas:', state.promociones); // DEBUG
   } catch (err) {
     console.error('Error promociones:', err);
   }
@@ -223,7 +224,7 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS (8am - 12am) - PERMITE HASTA 24:00
+// RENDERIZAR HORARIOS (8am - 12am)
 function renderizarHorarios() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
@@ -232,7 +233,6 @@ function renderizarHorarios() {
   const duracion = parseFloat(document.getElementById('duracionReserva').value);
   const duracionMin = duracion * 60;
 
-  // Iniciar desde las 8am
   for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
       const horaActual = h + (minutos / 60);
@@ -241,7 +241,6 @@ function renderizarHorarios() {
       const horaFinH = Math.floor(horaFinMin / 60);
       const horaFinM = horaFinMin % 60;
       
-      // CAMBIO: Permitir hasta 24:00 exactamente, no mostrar si pasa
       if (horaFinH > 24) continue;
       if (horaFinH === 24 && horaFinM > 0) continue;
       
@@ -295,21 +294,24 @@ function renderizarHorarios() {
         precioBase = (horasAntes * state.config.precios.horaDia) + (horasDespues * state.config.precios.horaNoche);
       }
 
-      // Verificar promoción
+      // Verificar promoción (LÓGICA CORREGIDA)
       let descuento = 0;
       const promo = state.promociones.find(p => {
         if (!p.activa) return false;
-        if (p.fecha && p.fecha !== state.selectedDate) return false;
-        if (!p.fecha || (!p.hora_inicio && !p.hora_fin)) return true;
         
-        if (p.hora_inicio && p.hora_fin) {
-          const promoArr1 = p.hora_inicio.split(':');
-          const promoArr2 = p.hora_fin.split(':');
-          const promoInicioMin = parseInt(promoArr1[0]) * 60 + parseInt(promoArr1[1] || 0);
-          const promoFinMin = parseInt(promoArr2[0]) * 60 + parseInt(promoArr2[1] || 0);
-          return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
-        }
-        return true;
+        // Si tiene fecha específica, debe coincidir
+        if (p.fecha && p.fecha !== state.selectedDate) return false;
+        
+        // Si NO tiene rango horario, aplica a todo el día
+        if (!p.hora_inicio || !p.hora_fin) return true;
+        
+        // Si tiene rango horario, verificar que el slot esté dentro
+        const promoArr1 = p.hora_inicio.split(':');
+        const promoArr2 = p.hora_fin.split(':');
+        const promoInicioMin = parseInt(promoArr1[0]) * 60 + parseInt(promoArr1[1] || 0);
+        const promoFinMin = parseInt(promoArr2[0]) * 60 + parseInt(promoArr2[1] || 0);
+        
+        return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
       });
 
       if (promo) {
@@ -349,12 +351,11 @@ function renderizarHorarios() {
   }
 }
 
-// SELECCIONAR HORA (PERMITE HASTA 24:00)
+// SELECCIONAR HORA
 function seleccionarHora(hora) {
   const [h, m] = hora.split(':').map(Number);
   const duracion = parseFloat(document.getElementById('duracionReserva').value);
   
-  // VALIDACIÓN: Permitir hasta 24:00 (medianoche) exactamente
   const horaFinMin = (h * 60 + m) + (duracion * 60);
   const horaFinH = Math.floor(horaFinMin / 60);
   const horaFinM = horaFinMin % 60;
@@ -390,20 +391,23 @@ function seleccionarHora(hora) {
     horaCalculo += horasEnEsteTarifa;
   }
 
+  // Verificar promoción (LÓGICA CORREGIDA)
   let descuento = 0;
   const promo = state.promociones.find(p => {
     if (!p.activa) return false;
+    
+    // Si tiene fecha específica, debe coincidir
     if (p.fecha && p.fecha !== state.selectedDate) return false;
-    if (!p.fecha || (!p.hora_inicio && !p.hora_fin)) return true;
     
-    if (p.hora_inicio && p.hora_fin) {
-      const promoInicioMin = parseInt(p.hora_inicio.split(':')[0]) * 60 + parseInt(p.hora_inicio.split(':')[1] || 0);
-      const promoFinMin = parseInt(p.hora_fin.split(':')[0]) * 60 + parseInt(p.hora_fin.split(':')[1] || 0);
-      const horaMin = h * 60 + m;
-      return horaMin >= promoInicioMin && horaMin < promoFinMin;
-    }
+    // Si NO tiene rango horario, aplica a todo el día
+    if (!p.hora_inicio || !p.hora_fin) return true;
     
-    return true;
+    // Si tiene rango horario, verificar que el slot esté dentro
+    const promoInicioMin = parseInt(p.hora_inicio.split(':')[0]) * 60 + parseInt(p.hora_inicio.split(':')[1] || 0);
+    const promoFinMin = parseInt(p.hora_fin.split(':')[0]) * 60 + parseInt(p.hora_fin.split(':')[1] || 0);
+    const horaMin = h * 60 + m;
+    
+    return horaMin >= promoInicioMin && horaMin < promoFinMin;
   });
 
   if (promo) {
