@@ -1,7 +1,8 @@
-// server.js - Distrito Padel v7.5 ESM + Postgres COMPLETO
+// server.js - Distrito Padel v7.8 ESM + Postgres + RESEND + Mis Reservas
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import { Resend } from 'resend';
 import { Pool } from 'pg';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
@@ -16,15 +17,19 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// ✅ RESEND
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ✅ ADMIN TOKEN
+const ADMIN_TOKEN = 'distritoadmin23';
+
 let config = { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } };
 
-// ✅ QUERY HELPER
 async function query(text, params) {
   const result = await pool.query(text, params);
   return result.rows;
 }
 
-// ✅ CREAR TABLAS
 async function crearTablas() {
   try {
     await pool.query(`
@@ -49,7 +54,7 @@ async function crearTablas() {
   }
 }
 
-// ✅ REGISTRO ✓
+// ✅ REGISTRO + EMAIL
 app.post('/api/registro', async (req, res) => {
   try {
     const { nombre, email, telefono, password } = req.body;
@@ -61,6 +66,14 @@ app.post('/api/registro', async (req, res) => {
       `INSERT INTO usuarios (id, nombre, email, telefono, password, token) VALUES ($1,$2,$3,$4,$5,$6)`,
       [id, nombre, email, telefono, hashedPass, token]
     );
+    
+    await resend.emails.send({
+      from: 'Distrito Padel <noreply@distritopadel.com>',
+      to: [email],
+      subject: '✅ Bienvenido a Distrito Padel',
+      html: `<h2>¡Hola ${nombre}!</h2><p>Tu cuenta ha sido creada exitosamente.</p><p>¡Nos vemos en la cancha! 🎾</p>`
+    });
+    
     res.json({ success: true, token });
   } catch (err) {
     console.error('Registro error:', err.message);
@@ -68,7 +81,7 @@ app.post('/api/registro', async (req, res) => {
   }
 });
 
-// ✅ LOGIN ✓
+// ✅ LOGIN
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -86,7 +99,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ✅ DISPONIBILIDAD ✓
+// ✅ DISPONIBILIDAD
 app.get('/api/disponibilidad', async (req, res) => {
   try {
     const { fecha, cancha } = req.query;
@@ -96,12 +109,11 @@ app.get('/api/disponibilidad', async (req, res) => {
     );
     res.json(reservas);
   } catch (err) {
-    console.error('Disponibilidad error:', err.message);
     res.json([]);
   }
 });
 
-// ✅ RESERVAS ✓
+// ✅ RESERVAS + EMAIL
 app.post('/api/reservas', async (req, res) => {
   try {
     const { nombre, email, telefono, fecha, hora_inicio, duracion_minutos, cancha, precio_total } = req.body;
@@ -112,6 +124,26 @@ app.post('/api/reservas', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente')`,
       [id, nombre, email, telefono, parseInt(cancha), fecha, hora_inicio, parseInt(duracion_minutos), parseFloat(precio_total)]
     );
+    
+    const hora12 = new Date(`2000-01-01T${hora_inicio}`).toLocaleTimeString('es-MX', {hour: '2-digit', minute:'2-digit'});
+    await resend.emails.send({
+      from: 'Distrito Padel <noreply@distritopadel.com>',
+      to: [email],
+      subject: `✅ Reserva Confirmada - Cancha ${cancha}`,
+      html: `
+        <h2>¡Reserva Confirmada ${nombre}!</h2>
+        <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0;">
+          <p><strong>Cancha:</strong> ${cancha}</p>
+          <p><strong>Fecha:</strong> ${fecha}</p>
+          <p><strong>Hora:</strong> ${hora12}</p>
+          <p><strong>Duración:</strong> ${duracion_minutos} min</p>
+          <p><strong>Total:</strong> $${precio_total} MXN</p>
+          <p><strong>Estado:</strong> <span style="color: orange;">Pendiente de pago</span></p>
+        </div>
+        <p>¡Nos vemos en la cancha! 🎾</p>
+      `
+    });
+    
     res.json({ success: true });
   } catch (err) {
     console.error('Reserva error:', err.message);
@@ -119,7 +151,26 @@ app.post('/api/reservas', async (req, res) => {
   }
 });
 
-// ✅ ADMIN RESERVAS ✓
+// ✅ MIS RESERVAS
+app.get('/api/mis-reservas', async (req, res) => {
+  try {
+    const email = req.headers['x-email'];
+    if (!email) return res.json([]);
+    
+    const reservas = await pool.query(`
+      SELECT * FROM reservas 
+      WHERE email = $1 AND estado != 'cancelada' 
+      ORDER BY fecha, hora_inicio
+    `, [email]);
+    
+    res.json(reservas);
+  } catch (err) {
+    console.error('Mis reservas error:', err.message);
+    res.json([]);
+  }
+});
+
+// ✅ ADMIN ENDPOINTS
 app.get('/api/reservas', async (req, res) => {
   try {
     const reservas = await pool.query(`SELECT * FROM reservas ORDER BY created_at DESC`);
@@ -129,7 +180,6 @@ app.get('/api/reservas', async (req, res) => {
   }
 });
 
-// ✅ ADMIN USUARIOS ✓
 app.get('/api/usuarios', async (req, res) => {
   try {
     const usuarios = await pool.query('SELECT id, nombre, email, telefono, created_at FROM usuarios ORDER BY created_at DESC');
@@ -137,6 +187,12 @@ app.get('/api/usuarios', async (req, res) => {
   } catch (err) {
     res.json([]);
   }
+});
+
+// ✅ ADMIN TOKEN VERIFY
+app.post('/api/admin/verify', async (req, res) => {
+  const { token } = req.body;
+  res.json({ valid: token === ADMIN_TOKEN });
 });
 
 // ✅ TEST
@@ -147,7 +203,8 @@ app.get('/api/test', async (req, res) => {
     res.json({ 
       db: 'OK', 
       usuarios: usersResult.rows[0].count,
-      reservas: reservasResult.rows[0].count
+      reservas: reservasResult.rows[0].count,
+      resend: !!process.env.RESEND_API_KEY
     });
   } catch (err) {
     res.json({ db: 'ERROR', error: err.message });
@@ -159,7 +216,8 @@ async function start() {
   await crearTablas();
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Distrito Padel v7.5 COMPLETO en puerto ${PORT}`);
+    console.log(`Distrito Padel v7.8 COMPLETO en puerto ${PORT}`);
+    console.log(`Admin Token: ${ADMIN_TOKEN}`);
   });
 }
 
