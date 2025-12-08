@@ -1,7 +1,6 @@
-// admin-app.js - Panel Admin v7.3 - Fix formato fecha
+// admin-app.js - Panel Admin v7.4 - COMPLETO
 const API_BASE = '';
 
-// Agregar al state inicial
 let state = {
   reservas: [],
   promociones: [],
@@ -12,7 +11,7 @@ let state = {
   currentTab: 'reservas',
   autoUpdateInterval: null,
   mostrarCanceladas: false,
-  mostrarPasadas: false  // NUEVO
+  mostrarPasadas: false
 };
 
 window.onload = () => {
@@ -138,14 +137,13 @@ function convertirA12h(hora24) {
   return `${hora12}:${String(m).padStart(2, '0')} ${periodo}`;
 }
 
-// NUEVA FUNCIÓN: Formatear fecha
 function formatearFecha(fechaISO) {
   if (!fechaISO) return '';
-  const fecha = new Date(fechaISO);
-  const fechaLocal = new Date(fecha.getTime() + fecha.getTimezoneOffset() * 60000);
-  const dia = fechaLocal.getDate().toString().padStart(2, '0');
-  const mes = (fechaLocal.getMonth() + 1).toString().padStart(2, '0');
-  const año = fechaLocal.getFullYear();
+  const fechaStr = typeof fechaISO === 'string' && fechaISO.includes('T') ? fechaISO.split('T')[0] : fechaISO;
+  const fecha = new Date(fechaStr + 'T00:00:00');
+  const dia = fecha.getDate().toString().padStart(2, '0');
+  const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+  const año = fecha.getFullYear();
   return `${dia}/${mes}/${año}`;
 }
 
@@ -170,16 +168,14 @@ function renderReservas() {
   const activas = state.reservas.filter(r => r.estado !== 'cancelada');
   const canceladas = state.reservas.filter(r => r.estado === 'cancelada');
 
-  // Función auxiliar para extraer fecha ISO
   const obtenerFechaISO = (fechaStr) => {
     if (!fechaStr) return null;
     if (typeof fechaStr === 'string' && fechaStr.includes('T')) {
-      return fechaStr.split('T')[0]; // "2025-12-08T00:00:00.000Z" -> "2025-12-08"
+      return fechaStr.split('T')[0];
     }
-    return fechaStr; // Ya está en formato "YYYY-MM-DD"
+    return fechaStr;
   };
 
-  // Separar por fecha (HOY y futuras VS pasadas)
   const futuras = activas.filter(r => {
     const fechaISO = obtenerFechaISO(r.fecha);
     if (!fechaISO) return false;
@@ -196,7 +192,6 @@ function renderReservas() {
     return fechaReserva < hoy;
   });
 
-  // Agrupar por día
   const agruparPorFecha = (reservas) => {
     const grupos = {};
     reservas.forEach(r => {
@@ -211,7 +206,6 @@ function renderReservas() {
   const reservasFuturas = agruparPorFecha(futuras);
   const reservasPasadas = agruparPorFecha(pasadas);
 
-  // Header con tabs
   const header = document.createElement('tr');
   header.innerHTML = `
     <td colspan="7" class="px-4 py-3 bg-blue-50 text-center">
@@ -251,11 +245,8 @@ function renderReservas() {
     }
   }, 0);
 
-  // Renderizar grupo de reservas
   const renderGrupo = (grupos, titulo, colorClass) => {
-    const fechasOrdenadas = Object.keys(grupos).sort((a, b) => {
-      return new Date(b) - new Date(a);
-    });
+    const fechasOrdenadas = Object.keys(grupos).sort((a, b) => new Date(b) - new Date(a));
 
     fechasOrdenadas.forEach(fechaISO => {
       const reservasDelDia = grupos[fechaISO].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
@@ -281,7 +272,7 @@ function renderReservas() {
         tr.className = `${canceladaClass} border-b`;
 
         const pagadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-        const pagadoText = r.pagado ? 'Pagada' : 'Pendiente';
+        const pagadoText = r.pagado ? '✅ Pagada' : '⏳ Pendiente';
         const metodoPagoTexto = r.metodo_pago ? `<br><span class="text-xs text-gray-600">${r.metodo_pago}</span>` : '';
 
         const tieneDescuento = r.descuento && r.descuento > 0;
@@ -298,25 +289,25 @@ function renderReservas() {
         `;
 
         const botonesHTML = r.estado === 'cancelada' 
-          ? '<span class="text-xs text-gray-500 italic">Cancelada</span>'
+          ? '<span class="text-xs text-gray-500 italic">❌ Cancelada</span>'
           : `
             <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2 mb-1">
               ${r.pagado ? 'Marcar Pendiente' : '💰 Marcar Pagada'}
             </button>
             <button onclick="cancelarReserva('${r.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
-               Cancelar
+              ❌ Cancelar
             </button>
           `;
 
         tr.innerHTML = `
           <td class="px-4 py-3 font-bold text-blue-600">${convertirA12h(r.hora_inicio)}</td>
           <td class="px-4 py-3">${r.duracion}h</td>
-          <td class="px-4 py-3 text-center font-bold"> ${r.cancha}</td>
+          <td class="px-4 py-3 text-center font-bold">🎾 ${r.cancha}</td>
           <td class="px-4 py-3">
             <div>
               <p class="font-bold text-gray-800">${r.nombre}</p>
-              <p class="text-xs text-gray-600"> ${r.email}</p>
-              <p class="text-xs text-gray-600"> ${r.telefono}</p>
+              <p class="text-xs text-gray-600">📧 ${r.email}</p>
+              <p class="text-xs text-gray-600">📱 ${r.telefono}</p>
             </div>
           </td>
           <td class="px-4 py-3">${precioHTML}</td>
@@ -341,6 +332,87 @@ function renderReservas() {
   if (state.mostrarCanceladas) {
     const canceladasAgrupadas = agruparPorFecha(canceladas);
     renderGrupo(canceladasAgrupadas, 'Canceladas', 'red');
+  }
+}
+
+// MARCAR PAGADA - FUNCIÓN FALTANTE
+async function marcarPagada(id, pagar) {
+  if (!pagar) {
+    if (!confirm('¿Marcar como PENDIENTE de pago?')) return;
+    
+    try {
+      const response = await fetch(API_BASE + `/api/admin/reservas/${id}/marcar-pendiente`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': state.token
+        }
+      });
+
+      if (response.ok) {
+        alert('✅ Marcada como pendiente');
+        await loadAllData();
+      } else {
+        alert('❌ Error al marcar como pendiente');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Error al marcar como pendiente');
+    }
+    return;
+  }
+
+  const metodo = prompt('Método de pago:\n1 = Efectivo\n2 = Tarjeta\n3 = Transferencia');
+  
+  if (!metodo || !['1','2','3'].includes(metodo)) {
+    alert('Método inválido. Debe ser 1, 2 o 3');
+    return;
+  }
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/reservas/${id}/pagar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ metodoPago: metodo })
+    });
+
+    if (response.ok) {
+      alert('✅ Reserva marcada como pagada');
+      await loadAllData();
+    } else {
+      alert('❌ Error al marcar como pagada');
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    alert('❌ Error al marcar como pagada');
+  }
+}
+
+// CANCELAR RESERVA - FUNCIÓN FALTANTE
+async function cancelarReserva(id) {
+  if (!confirm('⚠️ ¿Cancelar esta reserva?\n\nSe mantendrá el registro pero se liberará el horario.')) return;
+  
+  try {
+    const response = await fetch(API_BASE + `/api/admin/reservas/${id}/cancelar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      }
+    });
+
+    if (response.ok) {
+      alert('✅ Reserva cancelada exitosamente');
+      await loadAllData();
+    } else {
+      alert('❌ Error al cancelar reserva');
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    alert('❌ Error al cancelar reserva');
   }
 }
 
