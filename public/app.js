@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v6.2 - Horarios 30min + Fix Promociones + Fix iPhone
+// app.js - Frontend Distrito Padel v6.3 - Fix horario cierre + Inicio 8am
 const API_BASE = '';
 
 let state = {
@@ -58,7 +58,7 @@ function mostrarDashboard() {
   dateInput.max = maxDate.toISOString().split('T')[0];
   dateInput.value = today.toISOString().split('T')[0];
   
-  // NUEVO: Validar cambio de fecha
+  // Validar cambio de fecha
   dateInput.addEventListener('change', function() {
     const selectedDate = new Date(this.value + 'T00:00:00');
     const minDate = new Date(today.toISOString().split('T')[0] + 'T00:00:00');
@@ -74,6 +74,14 @@ function mostrarDashboard() {
       alert('Solo puedes reservar hasta 7 días adelante');
       this.value = maxDate.toISOString().split('T')[0];
       return;
+    }
+  });
+  
+  // Listener para cambio de duración
+  document.getElementById('duracionReserva').addEventListener('change', function() {
+    state.selectedDuration = parseFloat(this.value);
+    if (state.selectedCourt && state.selectedDate) {
+      cargarDisponibilidad();
     }
   });
   
@@ -110,12 +118,12 @@ async function registrar() {
       localStorage.setItem('user_email', data.email);
       localStorage.setItem('user_nombre', data.nombre);
       mostrarDashboard();
-      alert('Registro exitoso');
+      alert('✅ Registro exitoso');
     } else {
-      alert(data.msg || 'Error al registrar');
+      alert('❌ ' + (data.msg || 'Error al registrar'));
     }
   } catch (err) {
-    alert('Error de conexión');
+    alert('❌ Error de conexión');
   }
 }
 
@@ -147,10 +155,10 @@ async function login() {
       localStorage.setItem('user_nombre', data.nombre);
       mostrarDashboard();
     } else {
-      alert(data.msg || 'Credenciales inválidas');
+      alert('❌ ' + (data.msg || 'Credenciales inválidas'));
     }
   } catch (err) {
-    alert('Error de conexión');
+    alert('❌ Error de conexión');
   }
 }
 
@@ -215,25 +223,25 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS (OPTIMIZADO)
+// RENDERIZAR HORARIOS (8am - 12am)
 function renderizarHorarios() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
 
   const ahora = new Date();
-  const duracionMin = state.selectedDuration * 60;
+  const duracion = parseFloat(document.getElementById('duracionReserva').value);
+  const duracionMin = duracion * 60;
 
-  for (let h = 6; h <= 23; h++) {
+  // CAMBIO: Iniciar desde las 8am (no 6am)
+  for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
-      // No mostrar 23:30 si la duración lo hace pasar de medianoche
-      if (h === 23 && minutos === 30 && duracionMin > 30) continue;
-      
       const horaActual = h + (minutos / 60);
       const hora = `${h.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
       const horaFinMin = (h * 60 + minutos) + duracionMin;
       const horaFinH = Math.floor(horaFinMin / 60);
-      const horaFinM = horaFinMin % 60;
-      const horaFin = `${horaFinH.toString().padStart(2, '0')}:${horaFinM.toString().padStart(2, '0')}`;
+      
+      // NUEVA VALIDACIÓN: No mostrar horarios que pasen de medianoche
+      if (horaFinH >= 24) continue;
       
       // Verificar si pasó
       let pasado = false;
@@ -273,15 +281,15 @@ function renderizarHorarios() {
       // Calcular precio
       const precioHoraInicio = horaActual < state.config.precios.cambioTarifa ? 
         state.config.precios.horaDia : state.config.precios.horaNoche;
-      const precioHoraFin = (horaActual + state.selectedDuration) <= state.config.precios.cambioTarifa ?
+      const precioHoraFin = (horaActual + duracion) <= state.config.precios.cambioTarifa ?
         state.config.precios.horaDia : state.config.precios.horaNoche;
       
       let precioBase = 0;
       if (precioHoraInicio === precioHoraFin) {
-        precioBase = precioHoraInicio * state.selectedDuration;
+        precioBase = precioHoraInicio * duracion;
       } else {
         const horasAntes = state.config.precios.cambioTarifa - horaActual;
-        const horasDespues = state.selectedDuration - horasAntes;
+        const horasDespues = duracion - horasAntes;
         precioBase = (horasAntes * state.config.precios.horaDia) + (horasDespues * state.config.precios.horaNoche);
       }
 
@@ -339,15 +347,26 @@ function renderizarHorarios() {
   }
 }
 
-// SELECCIONAR HORA
+// SELECCIONAR HORA (CON VALIDACIÓN DE CIERRE)
 function seleccionarHora(hora) {
+  const [h, m] = hora.split(':').map(Number);
+  const duracion = parseFloat(document.getElementById('duracionReserva').value);
+  
+  // VALIDACIÓN: Verificar que no pase de medianoche
+  const horaFinMin = (h * 60 + m) + (duracion * 60);
+  const horaFinH = Math.floor(horaFinMin / 60);
+  
+  if (horaFinH >= 24) {
+    alert('⚠️ El club cierra a las 12:00 AM\n\nNo puedes hacer una reserva que termine después de la medianoche.\n\nSelecciona un horario o duración menor.');
+    return;
+  }
+  
   state.selectedTime = hora;
+  state.selectedDuration = duracion;
+  
   document.getElementById('confirmacionModal').classList.remove('hidden');
   
-  const [h, m] = hora.split(':').map(Number);
   const horaActual = h + (m / 60);
-  const duracion = state.selectedDuration;
-  
   let precioBase = 0;
   let horasRestantes = duracion;
   let horaCalculo = horaActual;
@@ -370,15 +389,18 @@ function seleccionarHora(hora) {
 
   let descuento = 0;
   const promo = state.promociones.find(p => {
-    if (!p.fecha) return true;
-    if (p.fecha !== state.selectedDate) return false;
+    if (!p.activa) return false;
+    if (p.fecha && p.fecha !== state.selectedDate) return false;
+    if (!p.fecha || (!p.hora_inicio && !p.hora_fin)) return true;
     
-    if (!p.hora_inicio || !p.hora_fin) return true;
+    if (p.hora_inicio && p.hora_fin) {
+      const promoInicioMin = parseInt(p.hora_inicio.split(':')[0]) * 60 + parseInt(p.hora_inicio.split(':')[1] || 0);
+      const promoFinMin = parseInt(p.hora_fin.split(':')[0]) * 60 + parseInt(p.hora_fin.split(':')[1] || 0);
+      const horaMin = h * 60 + m;
+      return horaMin >= promoInicioMin && horaMin < promoFinMin;
+    }
     
-    const promoInicioMin = parseInt(p.hora_inicio.split(':')[0]) * 60 + parseInt(p.hora_inicio.split(':')[1] || 0);
-    const promoFinMin = parseInt(p.hora_fin.split(':')[0]) * 60 + parseInt(p.hora_fin.split(':')[1] || 0);
-    const horaMin = h * 60 + m;
-    return horaMin >= promoInicioMin && horaMin < promoFinMin;
+    return true;
   });
 
   if (promo) {
@@ -388,13 +410,13 @@ function seleccionarHora(hora) {
   const precioFinal = Math.round(precioBase * (1 - descuento / 100));
 
   document.getElementById('confirmacionDetalle').innerHTML = `
-    <p><strong>Cancha:</strong> ${state.selectedCourt}</p>
-    <p><strong>Fecha:</strong> ${state.selectedDate}</p>
-    <p><strong>Hora:</strong> ${convertirA12h(hora)}</p>
-    <p><strong>Duración:</strong> ${duracion}h</p>
+    <p class="text-lg"><strong>Cancha:</strong> ${state.selectedCourt}</p>
+    <p class="text-lg"><strong>Fecha:</strong> ${state.selectedDate}</p>
+    <p class="text-lg"><strong>Hora:</strong> ${convertirA12h(hora)}</p>
+    <p class="text-lg"><strong>Duración:</strong> ${duracion}h</p>
     ${descuento > 0 ? `
-      <p class="text-purple-600 font-bold"><strong>Descuento:</strong> ${descuento}%</p>
-      <p class="text-gray-500 line-through">Precio: $${Math.round(precioBase)} MXN</p>
+      <p class="text-lg text-purple-600 font-bold"><strong>Descuento:</strong> ${descuento}%</p>
+      <p class="text-lg text-gray-500 line-through">Precio: $${Math.round(precioBase)} MXN</p>
     ` : ''}
     <p class="text-2xl font-bold text-green-600 mt-2">Total: $${precioFinal} MXN</p>
   `;
@@ -418,14 +440,14 @@ async function confirmarReserva() {
     const data = await res.json();
 
     if (data.ok) {
-      alert('Reserva creada exitosamente');
+      alert('✅ Reserva creada exitosamente');
       cerrarModal();
       cargarDisponibilidad();
     } else {
-      alert(data.msg || 'Error al crear reserva');
+      alert('❌ ' + (data.msg || 'Error al crear reserva'));
     }
   } catch (err) {
-    alert('Error de conexión');
+    alert('❌ Error de conexión');
   }
 }
 
@@ -451,17 +473,17 @@ async function verMisReservas() {
         div.innerHTML = `
           <div class="flex justify-between items-start mb-3">
             <div>
-              <p class="text-xl font-bold text-green-700">Cancha ${r.cancha}</p>
-              <p class="text-sm text-gray-600 mt-1">Fecha: ${r.fecha} - Hora: ${convertirA12h(r.hora_inicio)} - Duración: ${r.duracion}h</p>
+              <p class="text-xl font-bold text-green-700">🎾 Cancha ${r.cancha}</p>
+              <p class="text-sm text-gray-600 mt-1">📅 ${r.fecha} - ⏰ ${convertirA12h(r.hora_inicio)} - ⌛ ${r.duracion}h</p>
             </div>
-            <button onclick="cancelarReserva('${r.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-              Cancelar
+            <button onclick="cancelarReserva('${r.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+              ❌ Cancelar
             </button>
           </div>
           <div class="bg-white rounded-lg p-4">
-            <p class="text-2xl font-bold text-green-600">$${r.precio} MXN</p>
+            <p class="text-2xl font-bold text-green-600">💰 $${r.precio} MXN</p>
             <p class="text-sm mt-2 ${r.pagado ? 'text-green-600' : 'text-yellow-600'} font-bold">
-              ${r.pagado ? 'Pagado' : 'Pendiente de pago'}
+              ${r.pagado ? '✅ Pagado' : '⏳ Pendiente de pago'}
             </p>
           </div>
         `;
@@ -471,13 +493,13 @@ async function verMisReservas() {
 
     document.getElementById('misReservasModal').classList.remove('hidden');
   } catch (err) {
-    alert('Error al cargar reservas');
+    alert('❌ Error al cargar reservas');
   }
 }
 
 // CANCELAR RESERVA
 async function cancelarReserva(id) {
-  if (!confirm('¿Seguro que deseas cancelar esta reserva?')) return;
+  if (!confirm('⚠️ ¿Seguro que deseas cancelar esta reserva?')) return;
 
   try {
     const res = await fetch(API_BASE + '/api/reservas/' + id, {
@@ -488,21 +510,13 @@ async function cancelarReserva(id) {
     const data = await res.json();
 
     if (data.ok) {
-      alert('Reserva cancelada');
+      alert('✅ Reserva cancelada');
       verMisReservas();
     } else {
-      alert('Error al cancelar');
+      alert('❌ Error al cancelar');
     }
   } catch (err) {
-    alert('Error de conexión');
-  }
-}
-
-// CAMBIAR DURACIÓN
-function cambiarDuracion() {
-  state.selectedDuration = parseFloat(document.getElementById('duracionReserva').value);
-  if (state.selectedCourt && state.selectedDate) {
-    cargarDisponibilidad();
+    alert('❌ Error de conexión');
   }
 }
 
@@ -525,4 +539,3 @@ function cerrarMisReservas() {
 
 // EVENT LISTENERS
 document.getElementById('fechaReserva')?.addEventListener('change', cargarDisponibilidad);
-document.getElementById('duracionReserva')?.addEventListener('change', cambiarDuracion);
