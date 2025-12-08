@@ -319,3 +319,31 @@ async function descargarReporteMes() {
     alert('Error al descargar reporte');
   }
 }
+// Agregar al final de admin-app.js
+
+function showTab(tab) {
+  state.currentTab = tab;
+
+  document.getElementById('contentReservas').classList.add('hidden');
+  document.getElementById('contentPromociones').classList.add('hidden');
+  document.getElementById('contentBloqueos').classList.add('hidden');
+  document.getElementById('contentConfig').classList.add('hidden');
+
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  if (tab === 'reservas') {
+    document.getElementById('contentReservas').classList.remove('hidden');
+    document.getElementById('tabReservas').classList.add('active');
+  } else if (tab === 'promociones') {
+    document.getElementById('contentPromociones').classList.remove('hidden');
+    document.getElementById('tabPromociones').classList.add('active');
+  } else if (tab === 'bloqueos') {
+    document.getElementById('contentBloqueos').classList.remove('hidden');
+    document.getElementById('tabBloqueos').classList.add('active');
+  } else if (tab === 'config') {
+    document.getElementById('contentConfig').classList.remove('hidden');
+    document.getElementById('tabConfig').classList.add('active');
+  }
+}
