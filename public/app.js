@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v6.3 - Fix horario cierre + Inicio 8am
+// app.js - Frontend Distrito Padel v6.4 - Fix reservas hasta 12:00 AM
 const API_BASE = '';
 
 let state = {
@@ -223,7 +223,7 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS (8am - 12am)
+// RENDERIZAR HORARIOS (8am - 12am) - PERMITE HASTA 24:00
 function renderizarHorarios() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
@@ -232,16 +232,18 @@ function renderizarHorarios() {
   const duracion = parseFloat(document.getElementById('duracionReserva').value);
   const duracionMin = duracion * 60;
 
-  // CAMBIO: Iniciar desde las 8am (no 6am)
+  // Iniciar desde las 8am
   for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
       const horaActual = h + (minutos / 60);
       const hora = `${h.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
       const horaFinMin = (h * 60 + minutos) + duracionMin;
       const horaFinH = Math.floor(horaFinMin / 60);
+      const horaFinM = horaFinMin % 60;
       
-      // NUEVA VALIDACIÓN: No mostrar horarios que pasen de medianoche
-      if (horaFinH >= 24) continue;
+      // CAMBIO: Permitir hasta 24:00 exactamente, no mostrar si pasa
+      if (horaFinH > 24) continue;
+      if (horaFinH === 24 && horaFinM > 0) continue;
       
       // Verificar si pasó
       let pasado = false;
@@ -347,16 +349,17 @@ function renderizarHorarios() {
   }
 }
 
-// SELECCIONAR HORA (CON VALIDACIÓN DE CIERRE)
+// SELECCIONAR HORA (PERMITE HASTA 24:00)
 function seleccionarHora(hora) {
   const [h, m] = hora.split(':').map(Number);
   const duracion = parseFloat(document.getElementById('duracionReserva').value);
   
-  // VALIDACIÓN: Verificar que no pase de medianoche
+  // VALIDACIÓN: Permitir hasta 24:00 (medianoche) exactamente
   const horaFinMin = (h * 60 + m) + (duracion * 60);
   const horaFinH = Math.floor(horaFinMin / 60);
+  const horaFinM = horaFinMin % 60;
   
-  if (horaFinH >= 24) {
+  if (horaFinH > 24 || (horaFinH === 24 && horaFinM > 0)) {
     alert('⚠️ El club cierra a las 12:00 AM\n\nNo puedes hacer una reserva que termine después de la medianoche.\n\nSelecciona un horario o duración menor.');
     return;
   }
