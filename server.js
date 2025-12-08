@@ -1,18 +1,14 @@
-// DEBUG
-console.log('=== DEBUG VARIABLES (IGNORANDO process.env) ===');
-console.log('process.env.ADMIN_TOKEN:', process.env.ADMIN_TOKEN);
-console.log('process.env.EMAIL_USER:', process.env.EMAIL_USER);
-console.log('process.env.EMAIL_PASS:', process.env.EMAIL_PASS ? '***configurado***' : 'NO CONFIGURADO');
-console.log('===============================================');
+// DEBUG (opcional, puedes borrarlo luego)
+console.log('=== DEBUG (Resend activo, sin process.env para email/admin) ===');
 
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { Resend } from 'resend';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,24 +16,17 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ======= CONFIG FIJA PARA EVITAR PROBLEMAS DE ENV =======
-const ADMIN_TOKEN = 'distritoadmin23';         // <-- ESTE usarás en admin.html
-const EMAIL_USER = 'dist.padel@gmail.com';     // <-- TU CORREO
-const EMAIL_PASS = 'pjxwwmyhjkaituqr';         // <-- CONTRASEÑA DE APP (16 chars)
-// ========================================================
+// ======= CONFIG FIJA (PRODUCCIÓN) =======
+const ADMIN_TOKEN = 'distritoadmin23';              // Token para admin.html
+const RESEND_API_KEY = 're_dTNUtd3w_KnX82zJbpHRPt9nTUipogftm'; // TU API KEY DE RESEND
+const FROM_EMAIL = 'Reservas Distrito Padel <reservas@distritopadel.lat>';
+// ========================================
+
+const resend = new Resend(RESEND_API_KEY);
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
-
-// Configuración del transportador de email
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS
-  }
-});
 
 // Archivos de datos
 const DATA_FILE = 'data.json';
@@ -226,7 +215,7 @@ app.post('/api/reservas/crear', async (req, res) => {
   data.reservas.push(reserva);
   guardarDatos(data);
 
-  enviarEmailConfirmacion(usuario.email, reserva);
+  await enviarEmailConfirmacion(usuario.email, reserva);
 
   res.json({ ok: true, reserva });
 });
@@ -270,25 +259,32 @@ function calcularPrecio(hora, duracion, precios, promociones, fecha) {
   return { total: precioFinal, base: Math.round(precioBase), descuento };
 }
 
-function enviarEmailConfirmacion(email, reserva) {
-  const mailOptions = {
-    from: EMAIL_USER,
-    to: email,
-    subject: 'Confirmación de Reserva - Distrito Padel',
-    html: `
-      <h2>Reserva Confirmada</h2>
-      <p><strong>Fecha:</strong> ${reserva.fecha}</p>
-      <p><strong>Hora:</strong> ${reserva.horaInicio}</p>
-      <p><strong>Duración:</strong> ${reserva.duracion} hora(s)</p>
-      <p><strong>Cancha:</strong> ${reserva.cancha}</p>
-      <p><strong>Precio:</strong> $${reserva.precio} MXN</p>
-      <p>¡Te esperamos!</p>
-    `
-  };
+// Enviar email con Resend
+async function enviarEmailConfirmacion(email, reserva) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [email],
+      subject: 'Confirmación de Reserva - Distrito Padel',
+      html: `
+        <h2>Reserva Confirmada</h2>
+        <p><strong>Fecha:</strong> ${reserva.fecha}</p>
+        <p><strong>Hora:</strong> ${reserva.horaInicio}</p>
+        <p><strong>Duración:</strong> ${reserva.duracion} hora(s)</p>
+        <p><strong>Cancha:</strong> ${reserva.cancha}</p>
+        <p><strong>Precio:</strong> $${reserva.precio} MXN</p>
+        <p>Te esperamos en Distrito Padel.</p>
+      `
+    });
 
-  transporter.sendMail(mailOptions, err => {
-    if (err) console.error('Error al enviar email:', err);
-  });
+    if (error) {
+      console.error('Error Resend:', error);
+    } else {
+      console.log('Email enviado Resend, id:', data.id);
+    }
+  } catch (err) {
+    console.error('Error al enviar email con Resend:', err);
+  }
 }
 
 // Obtener mis reservas
