@@ -188,6 +188,21 @@ app.get('/api/usuarios', async (req, res) => {
     res.json([]);
   }
 });
+// TEMPORAL - Test endpoints
+app.get('/api/test', async (req, res) => {
+  try {
+    const users = await pool.query('SELECT COUNT(*) as count FROM usuarios');
+    const reservas = await pool.query('SELECT COUNT(*) as count FROM reservas');
+    res.json({ 
+      db: 'OK', 
+      usuarios: users[0].count, 
+      reservas: reservas[0].count,
+      DATABASE_URL: !!process.env.DATABASE_URL 
+    });
+  } catch (err) {
+    res.json({ db: 'ERROR', error: err.message });
+  }
+});
 
 // START
 async function start() {
