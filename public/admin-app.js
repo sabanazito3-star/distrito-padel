@@ -156,7 +156,7 @@ function renderReservas() {
   if (state.reservas.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" class="text-center py-12 text-gray-500">
+        <td colspan="7" class="text-center py-12 text-gray-500">
           <p class="text-lg">No hay reservas registradas</p>
         </td>
       </tr>
@@ -170,24 +170,26 @@ function renderReservas() {
   const activas = state.reservas.filter(r => r.estado !== 'cancelada');
   const canceladas = state.reservas.filter(r => r.estado === 'cancelada');
 
-  // Separar por fecha
+  // Separar por fecha (HOY y futuras VS pasadas)
   const futuras = activas.filter(r => {
-    const fechaReserva = new Date(r.fecha);
-    return fechaReserva >= hoy;
+    const fechaReserva = new Date(r.fecha + 'T00:00:00');
+    fechaReserva.setHours(0, 0, 0, 0);
+    return fechaReserva >= hoy; // >= incluye HOY
   });
 
   const pasadas = activas.filter(r => {
-    const fechaReserva = new Date(r.fecha);
-    return fechaReserva < hoy;
+    const fechaReserva = new Date(r.fecha + 'T00:00:00');
+    fechaReserva.setHours(0, 0, 0, 0);
+    return fechaReserva < hoy; // < solo días anteriores
   });
 
   // Agrupar por día
   const agruparPorFecha = (reservas) => {
     const grupos = {};
     reservas.forEach(r => {
-      const fecha = formatearFecha(r.fecha);
-      if (!grupos[fecha]) grupos[fecha] = [];
-      grupos[fecha].push(r);
+      const fechaISO = r.fecha.split('T')[0]; // YYYY-MM-DD
+      if (!grupos[fechaISO]) grupos[fechaISO] = [];
+      grupos[fechaISO].push(r);
     });
     return grupos;
   };
@@ -198,13 +200,13 @@ function renderReservas() {
   // Header con tabs
   const header = document.createElement('tr');
   header.innerHTML = `
-    <td colspan="9" class="px-4 py-3 bg-blue-50 text-center">
+    <td colspan="7" class="px-4 py-3 bg-blue-50 text-center">
       <div class="flex justify-center gap-6 items-center">
-        <span class="font-bold text-green-700">Futuras: ${futuras.length}</span>
+        <span class="font-bold text-green-700">Hoy y Futuras: ${futuras.length}</span>
         <span class="font-bold text-gray-700">Pasadas: ${pasadas.length}</span>
         <span class="font-bold text-red-700">Canceladas: ${canceladas.length}</span>
         <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" id="checkMostrarPasadas">
+          <input type="checkbox" id="checkMostrarPasadas" ${state.mostrarPasadas ? 'checked' : ''}>
           <span class="text-sm">Mostrar pasadas</span>
         </label>
         <label class="flex items-center gap-2 cursor-pointer">
@@ -235,17 +237,29 @@ function renderReservas() {
     }
   }, 0);
 
-  // Renderizar reservas futuras
+  // Renderizar grupo de reservas
   const renderGrupo = (grupos, titulo, colorClass) => {
-    Object.keys(grupos).sort().forEach(fecha => {
-      const reservasDelDia = grupos[fecha].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+    // Ordenar fechas de más reciente a más antigua
+    const fechasOrdenadas = Object.keys(grupos).sort((a, b) => {
+      return new Date(b) - new Date(a); // DESC: más reciente primero
+    });
+
+    fechasOrdenadas.forEach(fechaISO => {
+      const reservasDelDia = grupos[fechaISO].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+      
+      // Formatear fecha bonita
+      const fecha = new Date(fechaISO + 'T00:00:00');
+      const esHoy = fecha.getTime() === hoy.getTime();
+      const diaSemana = fecha.toLocaleDateString('es-MX', { weekday: 'long' });
+      const fechaFormateada = formatearFecha(fechaISO);
+      const etiquetaHoy = esHoy ? ' 🔥 HOY' : '';
       
       // Header de día
       const headerDia = document.createElement('tr');
       headerDia.className = `bg-${colorClass}-100 border-t-2 border-${colorClass}-300`;
       headerDia.innerHTML = `
-        <td colspan="9" class="px-4 py-2 font-bold text-${colorClass}-800">
-          📅 ${fecha} - ${reservasDelDia.length} reserva(s)
+        <td colspan="7" class="px-4 py-2 font-bold text-${colorClass}-800">
+          📅 ${diaSemana.toUpperCase()} ${fechaFormateada}${etiquetaHoy} - ${reservasDelDia.length} reserva(s)
         </td>
       `;
       tbody.appendChild(headerDia);
@@ -309,15 +323,15 @@ function renderReservas() {
     });
   };
 
-  // Mostrar futuras
-  renderGrupo(reservasFuturas, 'Próximas Reservas', 'green');
+  // Mostrar futuras (HOY + posteriores) - ORDEN DESC (más reciente primero)
+  renderGrupo(reservasFuturas, 'Hoy y Próximas Reservas', 'green');
 
-  // Mostrar pasadas si está activado
+  // Mostrar pasadas si está activado - ORDEN DESC
   if (state.mostrarPasadas) {
     renderGrupo(reservasPasadas, 'Reservas Anteriores', 'gray');
   }
 
-  // Mostrar canceladas si está activado
+  // Mostrar canceladas si está activado - ORDEN DESC
   if (state.mostrarCanceladas) {
     const canceladasAgrupadas = agruparPorFecha(canceladas);
     renderGrupo(canceladasAgrupadas, 'Canceladas', 'red');
