@@ -19,7 +19,7 @@
                     <img src="logo.jpg" alt="Distrito Padel" class="w-16 h-16 rounded-xl">
                     <div>
                         <h1 class="text-3xl font-bold">Panel Admin</h1>
-                        <p class="text-sm text-green-100">Distrito Padel v6.1</p>
+                        <p class="text-sm text-green-100">Distrito Padel v7.5</p>
                     </div>
                 </div>
                 <div id="lastUpdate" class="text-sm text-green-100"></div>
@@ -41,17 +41,57 @@
 
             <!-- Stats -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <p class="text-gray-600 mb-2">Total Reservas Activas</p>
-                    <p id="statReservas" class="text-4xl font-bold text-green-600">0</p>
+                <!-- Reservas Activas (solo futuras/hoy) -->
+                <div class="bg-gradient-to-r from-green-400 to-green-600 rounded-2xl p-6 text-white shadow-lg">
+                    <div>
+                        <p class="text-sm opacity-90">Reservas Activas</p>
+                        <p class="text-xs opacity-75">(Hoy y Futuras)</p>
+                        <p id="statReservas" class="text-4xl font-bold mt-2">0</p>
+                    </div>
                 </div>
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <p class="text-gray-600 mb-2">Total Recaudado</p>
-                    <p id="statRecaudado" class="text-4xl font-bold text-blue-600">$0</p>
+
+                <!-- Total Recaudado con Filtros -->
+                <div class="bg-gradient-to-r from-blue-400 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+                    <div class="mb-2">
+                        <p class="text-sm opacity-90">Total Recaudado</p>
+                        <p id="statRecaudado" class="text-4xl font-bold mt-2">$0</p>
+                        <p class="text-xs opacity-75 mt-1" id="filtroTotalLabel">Todo el tiempo</p>
+                    </div>
+                    
+                    <!-- Controles de Filtro -->
+                    <div class="mt-4 space-y-2">
+                        <select id="filtroTotalTipo" onchange="cambiarFiltroTotal()" class="w-full px-3 py-2 rounded-lg text-gray-800 text-sm">
+                            <option value="todo">Todo el tiempo</option>
+                            <option value="fecha">Fecha específica</option>
+                            <option value="rango">Rango de fechas</option>
+                        </select>
+                        
+                        <!-- Filtro por fecha única -->
+                        <div id="filtroFechaDiv" class="hidden">
+                            <input type="date" id="filtroFechaUnica" class="w-full px-3 py-2 rounded-lg text-gray-800 text-sm">
+                            <button onclick="aplicarFiltroFecha()" class="w-full mt-2 px-3 py-2 bg-white text-blue-600 rounded-lg text-sm font-bold hover:bg-gray-100">
+                                Aplicar
+                            </button>
+                        </div>
+                        
+                        <!-- Filtro por rango -->
+                        <div id="filtroRangoDiv" class="hidden space-y-2">
+                            <input type="date" id="filtroFechaInicio" placeholder="Desde" class="w-full px-3 py-2 rounded-lg text-gray-800 text-sm">
+                            <input type="date" id="filtroFechaFin" placeholder="Hasta" class="w-full px-3 py-2 rounded-lg text-gray-800 text-sm">
+                            <button onclick="aplicarFiltroRango()" class="w-full px-3 py-2 bg-white text-blue-600 rounded-lg text-sm font-bold hover:bg-gray-100">
+                                Aplicar
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <p class="text-gray-600 mb-2">Pendientes de Pago</p>
-                    <p id="statPendientes" class="text-4xl font-bold text-yellow-600">0</p>
+
+                <!-- Pendientes de Pago -->
+                <div class="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-2xl p-6 text-white shadow-lg">
+                    <div>
+                        <p class="text-sm opacity-90">Pendientes de Pago</p>
+                        <p class="text-xs opacity-75">(Solo activas)</p>
+                        <p id="statPendientes" class="text-4xl font-bold mt-2">0</p>
+                    </div>
                 </div>
             </div>
 
@@ -61,11 +101,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button onclick="descargarReporteDia()" 
                             class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 hover:shadow-lg">
-                        📊 Descargar Cierre de Hoy
+                        Descargar Cierre de Día
                     </button>
                     <button onclick="descargarReporteMes()" 
                             class="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 hover:shadow-lg">
-                        📈 Descargar Cierre Mensual
+                        Descargar Cierre Mensual
                     </button>
                 </div>
             </div>
@@ -96,7 +136,7 @@
 
                 <!-- Formulario Crear Reserva Manual -->
                 <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-blue-700">📞 Crear Reserva Manual (Teléfono/WhatsApp)</h3>
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual (Teléfono/WhatsApp)</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha *</label>
