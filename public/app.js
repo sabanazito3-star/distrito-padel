@@ -1,5 +1,6 @@
-// app.js - Frontend Distrito Padel v6.6 - Fix formato fecha promociones
+// app.js - Frontend Distrito Padel v6.7 - Fix zona horaria MST
 const API_BASE = '';
+
 
 let state = {
   token: localStorage.getItem('session_token') || '',
@@ -15,6 +16,7 @@ let state = {
   config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } }
 };
 
+
 // INICIALIZAR
 document.addEventListener('DOMContentLoaded', () => {
   cargarConfig();
@@ -24,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mostrarAuth();
   }
 });
+
 
 // CARGAR CONFIG
 async function cargarConfig() {
@@ -35,12 +38,14 @@ async function cargarConfig() {
   }
 }
 
+
 // MOSTRAR AUTH
 function mostrarAuth() {
   document.getElementById('authSection').classList.remove('hidden');
   document.getElementById('dashboardSection').classList.add('hidden');
   document.getElementById('userInfo').classList.add('hidden');
 }
+
 
 // MOSTRAR DASHBOARD
 function mostrarDashboard() {
@@ -49,30 +54,39 @@ function mostrarDashboard() {
   document.getElementById('userInfo').classList.remove('hidden');
   document.getElementById('userNombre').textContent = state.nombre;
   
+  // 🆕 FIX: Usar fecha local en lugar de UTC
   const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+  
   const maxDate = new Date(today);
   maxDate.setDate(today.getDate() + 7);
+  const maxYear = maxDate.getFullYear();
+  const maxMonth = String(maxDate.getMonth() + 1).padStart(2, '0');
+  const maxDay = String(maxDate.getDate()).padStart(2, '0');
+  const maxDateStr = `${maxYear}-${maxMonth}-${maxDay}`;
   
   const dateInput = document.getElementById('fechaReserva');
-  dateInput.min = today.toISOString().split('T')[0];
-  dateInput.max = maxDate.toISOString().split('T')[0];
-  dateInput.value = today.toISOString().split('T')[0];
+  dateInput.min = todayStr;
+  dateInput.max = maxDateStr;
+  dateInput.value = todayStr;
+  state.selectedDate = todayStr;
   
   // Validar cambio de fecha
   dateInput.addEventListener('change', function() {
-    const selectedDate = new Date(this.value + 'T00:00:00');
-    const minDate = new Date(today.toISOString().split('T')[0] + 'T00:00:00');
-    const maxDateLimit = new Date(maxDate.toISOString().split('T')[0] + 'T00:00:00');
+    const selectedValue = this.value;
     
-    if (selectedDate < minDate) {
+    if (selectedValue < todayStr) {
       alert('No puedes reservar en fechas pasadas');
-      this.value = today.toISOString().split('T')[0];
+      this.value = todayStr;
       return;
     }
     
-    if (selectedDate > maxDateLimit) {
+    if (selectedValue > maxDateStr) {
       alert('Solo puedes reservar hasta 7 días adelante');
-      this.value = maxDate.toISOString().split('T')[0];
+      this.value = maxDateStr;
       return;
     }
   });
@@ -89,6 +103,7 @@ function mostrarDashboard() {
   cargarBloqueos();
 }
 
+
 // REGISTRO
 async function registrar() {
   const nombre = document.getElementById('regNombre').value.trim();
@@ -96,10 +111,12 @@ async function registrar() {
   const telefono = document.getElementById('regTelefono').value.trim();
   const password = document.getElementById('regPassword').value;
 
+
   if (!nombre || !email || !telefono || !password) {
     alert('Completa todos los campos');
     return;
   }
+
 
   try {
     const res = await fetch(API_BASE + '/api/auth/register', {
@@ -108,7 +125,9 @@ async function registrar() {
       body: JSON.stringify({ nombre, email, telefono, password })
     });
 
+
     const data = await res.json();
+
 
     if (data.ok) {
       state.token = data.token;
@@ -127,15 +146,18 @@ async function registrar() {
   }
 }
 
+
 // LOGIN
 async function login() {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
 
+
   if (!email || !password) {
     alert('Completa todos los campos');
     return;
   }
+
 
   try {
     const res = await fetch(API_BASE + '/api/auth/login', {
@@ -144,7 +166,9 @@ async function login() {
       body: JSON.stringify({ email, password })
     });
 
+
     const data = await res.json();
+
 
     if (data.ok) {
       state.token = data.token;
@@ -162,6 +186,7 @@ async function login() {
   }
 }
 
+
 // LOGOUT
 function logout() {
   state.token = '';
@@ -173,6 +198,7 @@ function logout() {
   mostrarAuth();
 }
 
+
 // CARGAR PROMOCIONES
 async function cargarPromociones() {
   try {
@@ -182,6 +208,7 @@ async function cargarPromociones() {
     console.error('Error promociones:', err);
   }
 }
+
 
 // CARGAR BLOQUEOS
 async function cargarBloqueos() {
@@ -193,6 +220,7 @@ async function cargarBloqueos() {
   }
 }
 
+
 // SELECCIONAR CANCHA
 function seleccionarCancha(cancha) {
   state.selectedCourt = cancha;
@@ -201,14 +229,18 @@ function seleccionarCancha(cancha) {
   cargarDisponibilidad();
 }
 
+
 // CARGAR DISPONIBILIDAD
 async function cargarDisponibilidad() {
   const fecha = document.getElementById('fechaReserva').value;
   const cancha = state.selectedCourt;
 
+
   if (!fecha || !cancha) return;
 
+
   state.selectedDate = fecha;
+
 
   try {
     const res = await fetch(API_BASE + `/api/disponibilidad?fecha=${fecha}&cancha=${cancha}`);
@@ -223,14 +255,17 @@ async function cargarDisponibilidad() {
   }
 }
 
+
 // RENDERIZAR HORARIOS (8am - 12am)
 function renderizarHorarios() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
 
+
   const ahora = new Date();
   const duracion = parseFloat(document.getElementById('duracionReserva').value);
   const duracionMin = duracion * 60;
+
 
   for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
@@ -243,19 +278,21 @@ function renderizarHorarios() {
       if (horaFinH > 24) continue;
       if (horaFinH === 24 && horaFinM > 0) continue;
       
-      // Verificar si pasó
+      // 🆕 FIX: Verificar si pasó usando fecha local
       let pasado = false;
-      const fechaSeleccionada = new Date(state.selectedDate + 'T00:00:00');
-      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+      const fechaSeleccionada = state.selectedDate;
+      const hoy = new Date();
+      const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
       
-      if (fechaSeleccionada < hoy) {
+      if (fechaSeleccionada < hoyStr) {
         pasado = true;
-      } else if (fechaSeleccionada.getTime() === hoy.getTime()) {
-        const horaActualCompleta = ahora.getHours() + (ahora.getMinutes() / 60);
+      } else if (fechaSeleccionada === hoyStr) {
+        const horaActualCompleta = hoy.getHours() + (hoy.getMinutes() / 60);
         if (horaActual <= horaActualCompleta) {
           pasado = true;
         }
       }
+
 
       // Verificar reservas
       const slotInicioMin = h * 60 + minutos;
@@ -268,6 +305,7 @@ function renderizarHorarios() {
         return (slotInicioMin < finMin && slotFinMin > inicioMin);
       });
 
+
       // Verificar bloqueos
       const bloqueado = state.bloqueos.some(b => {
         if (!b.hora_inicio || !b.hora_fin) return true;
@@ -277,6 +315,7 @@ function renderizarHorarios() {
         const bloqFinMin = parseInt(bloqArr2[0]) * 60 + parseInt(bloqArr2[1] || 0);
         return (slotInicioMin < bloqFinMin && slotFinMin > bloqInicioMin);
       });
+
 
       // Calcular precio
       const precioHoraInicio = horaActual < state.config.precios.cambioTarifa ? 
@@ -292,6 +331,7 @@ function renderizarHorarios() {
         const horasDespues = duracion - horasAntes;
         precioBase = (horasAntes * state.config.precios.horaDia) + (horasDespues * state.config.precios.horaNoche);
       }
+
 
       // Verificar promoción (FIX: Extraer fecha sin hora)
       let descuento = 0;
@@ -316,11 +356,14 @@ function renderizarHorarios() {
         return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
       });
 
+
       if (promo) {
         descuento = promo.descuento;
       }
 
+
       const precioFinal = Math.round(precioBase * (1 - descuento / 100));
+
 
       const div = document.createElement('div');
       div.className = `p-3 rounded-lg border-2 cursor-pointer transition text-sm ${
@@ -331,9 +374,11 @@ function renderizarHorarios() {
         'bg-green-100 border-green-400 hover:bg-green-200'
       }`;
 
+
       if (!pasado && !ocupado && !bloqueado) {
         div.onclick = () => seleccionarHora(hora);
       }
+
 
       div.innerHTML = `
         <p class="font-bold text-sm">${convertirA12h(hora)}</p>
@@ -348,10 +393,12 @@ function renderizarHorarios() {
         ` : ''}
       `;
 
+
       container.appendChild(div);
     }
   }
 }
+
 
 // SELECCIONAR HORA
 function seleccionarHora(hora) {
@@ -393,6 +440,7 @@ function seleccionarHora(hora) {
     horaCalculo += horasEnEsteTarifa;
   }
 
+
   // Verificar promoción (FIX: Extraer fecha sin hora)
   let descuento = 0;
   const promo = state.promociones.find(p => {
@@ -415,11 +463,14 @@ function seleccionarHora(hora) {
     return horaMin >= promoInicioMin && horaMin < promoFinMin;
   });
 
+
   if (promo) {
     descuento = promo.descuento;
   }
 
+
   const precioFinal = Math.round(precioBase * (1 - descuento / 100));
+
 
   document.getElementById('confirmacionDetalle').innerHTML = `
     <p class="text-lg"><strong>Cancha:</strong> ${state.selectedCourt}</p>
@@ -433,6 +484,7 @@ function seleccionarHora(hora) {
     <p class="text-2xl font-bold text-green-600 mt-2">Total: $${precioFinal} MXN</p>
   `;
 }
+
 
 // CONFIRMAR RESERVA
 async function confirmarReserva() {
@@ -449,7 +501,9 @@ async function confirmarReserva() {
       })
     });
 
+
     const data = await res.json();
+
 
     if (data.ok) {
       alert('✅ Reserva creada exitosamente');
@@ -463,6 +517,7 @@ async function confirmarReserva() {
   }
 }
 
+
 // VER MIS RESERVAS
 async function verMisReservas() {
   try {
@@ -472,9 +527,11 @@ async function verMisReservas() {
       }
     });
 
+
     const reservas = await res.json();
     const container = document.getElementById('misReservasList');
     container.innerHTML = '';
+
 
     if (reservas.length === 0) {
       container.innerHTML = '<p class="text-center text-gray-500 py-8">No tienes reservas activas</p>';
@@ -503,15 +560,18 @@ async function verMisReservas() {
       });
     }
 
+
     document.getElementById('misReservasModal').classList.remove('hidden');
   } catch (err) {
     alert('❌ Error al cargar reservas');
   }
 }
 
+
 // CANCELAR RESERVA
 async function cancelarReserva(id) {
   if (!confirm('⚠️ ¿Seguro que deseas cancelar esta reserva?')) return;
+
 
   try {
     const res = await fetch(API_BASE + '/api/reservas/' + id, {
@@ -519,7 +579,9 @@ async function cancelarReserva(id) {
       headers: { 'x-token': state.token }
     });
 
+
     const data = await res.json();
+
 
     if (data.ok) {
       alert('✅ Reserva cancelada');
@@ -532,6 +594,7 @@ async function cancelarReserva(id) {
   }
 }
 
+
 // UTILIDADES
 function convertirA12h(hora24) {
   const [h, m] = hora24.split(':');
@@ -541,13 +604,16 @@ function convertirA12h(hora24) {
   return `${hora12}:${m} ${ampm}`;
 }
 
+
 function cerrarModal() {
   document.getElementById('confirmacionModal').classList.add('hidden');
 }
 
+
 function cerrarMisReservas() {
   document.getElementById('misReservasModal').classList.add('hidden');
 }
+
 
 // EVENT LISTENERS
 document.getElementById('fechaReserva')?.addEventListener('change', cargarDisponibilidad);
