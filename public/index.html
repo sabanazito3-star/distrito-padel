@@ -6,55 +6,67 @@
   <title>Distrito Padel - Reserva tu cancha</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .tab-btn.active { background: linear-gradient(to right, #059669, #047857); color: white; }
+    :root {
+      --primary-green: #26422b;
+      --primary-green-light: #3a5f40;
+      --primary-green-lighter: #d4e6d6;
+    }
+    
+    .bg-primary { background-color: var(--primary-green); }
+    .bg-primary-light { background-color: var(--primary-green-light); }
+    .bg-primary-lighter { background-color: var(--primary-green-lighter); }
+    .text-primary { color: var(--primary-green); }
+    .border-primary { border-color: var(--primary-green); }
+    
+    .tab-btn.active { 
+      background: linear-gradient(to right, #26422b, #1e3621); 
+      color: white; 
+    }
+    
     .cancha-btn { transition: all 0.2s; }
     .cancha-btn:hover { transform: scale(1.05); }
-    
-    /* FIX: Horarios más compactos */
-    #horariosDisponibles > div {
-      padding: 0.5rem !important;
-      min-height: 70px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+    .cancha-btn.selected {
+      background-color: #26422b;
+      color: white;
+      border-color: #26422b;
     }
     
-    #horariosDisponibles > div p:first-child {
-      font-size: 0.875rem;
-      font-weight: 700;
+    /* Horarios compactos */
+    .horario-slot {
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .horario-slot:hover:not(.ocupado):not(.pasado) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(38, 66, 43, 0.3);
+      border-color: #26422b;
+    }
+    .horario-slot.ocupado, .horario-slot.pasado {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
     
-    #horariosDisponibles > div p.text-xs {
-      font-size: 0.7rem;
+    /* Duración slot */
+    .duracion-slot {
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 2px solid #e5e7eb;
+      background: white;
+    }
+    .duracion-slot:hover {
+      border-color: #26422b;
+      background-color: #d4e6d6;
+      transform: scale(1.02);
     }
     
-    #horariosDisponibles > div .font-bold {
-      font-size: 0.9rem;
+    /* Botones personalizados */
+    .btn-primary {
+      background: linear-gradient(to right, #26422b, #1e3621);
+      color: white;
     }
-    
-    /* Grid responsive mejorado */
-    @media (max-width: 640px) {
-      #horariosDisponibles {
-        grid-template-columns: repeat(3, 1fr) !important;
-        gap: 0.5rem !important;
-      }
-      
-      #horariosDisponibles > div {
-        padding: 0.4rem !important;
-        min-height: 60px;
-      }
-    }
-    
-    @media (min-width: 641px) and (max-width: 1024px) {
-      #horariosDisponibles {
-        grid-template-columns: repeat(5, 1fr) !important;
-      }
-    }
-    
-    @media (min-width: 1025px) {
-      #horariosDisponibles {
-        grid-template-columns: repeat(6, 1fr) !important;
-      }
+    .btn-primary:hover {
+      background: linear-gradient(to right, #1e3621, #26422b);
     }
   </style>
 </head>
@@ -66,13 +78,13 @@
       <!-- Logo -->
       <div class="text-center mb-8">
         <img src="logo.jpg" alt="Distrito Padel" class="w-20 h-20 mx-auto mb-4 rounded-xl shadow-lg">
-        <h1 class="text-4xl font-bold text-green-600 mb-2">Distrito Padel</h1>
+        <h1 class="text-4xl font-bold text-primary mb-2">Distrito Padel</h1>
         <p class="text-gray-600">Reserva tu cancha fácilmente</p>
       </div>
 
       <!-- Tabs -->
       <div class="flex gap-2 mb-6">
-        <button class="tab-btn flex-1 py-3 px-6 rounded-lg font-bold bg-green-600 text-white shadow" onclick="mostrarFormLogin()">
+        <button class="tab-btn flex-1 py-3 px-6 rounded-lg font-bold shadow active" onclick="mostrarFormLogin()">
           Iniciar Sesión
         </button>
         <button class="tab-btn flex-1 py-3 px-6 rounded-lg font-bold bg-white text-gray-600" onclick="mostrarFormRegistro()">
@@ -87,15 +99,15 @@
           <div>
             <label class="block text-sm font-bold mb-2">Email</label>
             <input type="email" id="loginEmail" placeholder="tu@email.com" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
             <label class="block text-sm font-bold mb-2">Contraseña</label>
             <input type="password" id="loginPassword" placeholder="••••••••" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <button onclick="login()" 
-            class="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg transition">
+            class="w-full py-3 btn-primary rounded-xl font-bold hover:shadow-lg transition">
             Entrar
           </button>
         </div>
@@ -108,25 +120,25 @@
           <div>
             <label class="block text-sm font-bold mb-2">Nombre Completo</label>
             <input type="text" id="regNombre" placeholder="Juan Pérez" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
             <label class="block text-sm font-bold mb-2">Email</label>
             <input type="email" id="regEmail" placeholder="tu@email.com" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
             <label class="block text-sm font-bold mb-2">Teléfono (10 dígitos)</label>
             <input type="tel" id="regTelefono" placeholder="5551234567" maxlength="10"
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
             <label class="block text-sm font-bold mb-2">Contraseña</label>
             <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
+              class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <button onclick="registrar()" 
-            class="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg transition">
+            class="w-full py-3 btn-primary rounded-xl font-bold hover:shadow-lg transition">
             Registrarse
           </button>
         </div>
@@ -137,18 +149,18 @@
   <!-- DASHBOARD SECTION -->
   <div id="dashboardSection" class="hidden min-h-screen">
     <!-- Header -->
-    <header class="bg-gradient-to-r from-green-600 to-green-700 text-white py-6 shadow-lg">
+    <header class="bg-primary text-white py-6 shadow-lg">
       <div class="container mx-auto px-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <img src="logo.jpg" alt="Distrito Padel" class="w-14 h-14 rounded-xl">
           <div>
             <h1 class="text-2xl font-bold">Distrito Padel</h1>
-            <p class="text-sm text-green-100">Sistema de Reservas v6.1</p>
+            <p class="text-sm opacity-80">Sistema de Reservas</p>
           </div>
         </div>
         <div id="userInfo" class="text-right">
           <p class="font-bold" id="userNombre"></p>
-          <button onclick="logout()" class="text-sm text-green-100 hover:text-white">Cerrar sesión</button>
+          <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">Cerrar sesión</button>
         </div>
       </div>
     </header>
@@ -162,73 +174,40 @@
         </button>
       </div>
 
-      <!-- Fecha y Duración -->
+      <!-- Fecha -->
       <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4 text-green-600">Fecha y Duración</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-bold mb-2">Fecha</label>
-            <input type="date" id="fechaReserva" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block text-sm font-bold mb-2">Duración</label>
-            <select id="duracionReserva" 
-              class="w-full px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
-              <option value="1">1 hora</option>
-              <option value="1.5">1.5 horas</option>
-              <option value="2">2 horas</option>
-            </select>
-          </div>
-        </div>
+        <h2 class="text-2xl font-bold mb-4 text-primary">Selecciona Fecha</h2>
+        <input type="date" id="fechaReserva" 
+          class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none text-lg">
       </div>
 
       <!-- Canchas -->
       <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4 text-green-600">Selecciona Cancha</h2>
+        <h2 class="text-2xl font-bold mb-4 text-primary">Selecciona Cancha</h2>
         <div class="grid grid-cols-3 gap-4">
           <button onclick="seleccionarCancha(1)" 
-            class="cancha-btn py-4 bg-green-100 border-2 border-green-400 rounded-xl font-bold hover:bg-green-200">
+            class="cancha-btn py-4 bg-primary-lighter border-2 border-primary rounded-xl font-bold">
             Cancha 1
           </button>
           <button onclick="seleccionarCancha(2)" 
-            class="cancha-btn py-4 bg-green-100 border-2 border-green-400 rounded-xl font-bold hover:bg-green-200">
+            class="cancha-btn py-4 bg-primary-lighter border-2 border-primary rounded-xl font-bold">
             Cancha 2
           </button>
           <button onclick="seleccionarCancha(3)" 
-            class="cancha-btn py-4 bg-green-100 border-2 border-green-400 rounded-xl font-bold hover:bg-green-200">
+            class="cancha-btn py-4 bg-primary-lighter border-2 border-primary rounded-xl font-bold">
             Cancha 3
           </button>
         </div>
       </div>
 
-      <!-- Horarios -->
+      <!-- Horarios Disponibles -->
       <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4 text-green-600">Horarios Disponibles</h2>
+        <h2 class="text-2xl font-bold mb-4 text-primary">Horarios Disponibles</h2>
+        <p class="text-sm text-gray-600 mb-4">Selecciona un horario y duración</p>
         
-        <!-- Leyenda -->
-        <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-4">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-green-100 border-2 border-green-400 rounded-lg"></div>
-              <span class="font-medium text-xs md:text-sm">Disponible</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-red-100 border-2 border-red-300 rounded-lg"></div>
-              <span class="font-medium text-xs md:text-sm">Ocupado</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-gray-200 border-2 border-gray-300 rounded-lg"></div>
-              <span class="font-medium text-xs md:text-sm">Pasado</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-purple-100 border-4 border-purple-400 rounded-lg"></div>
-              <span class="font-medium text-xs md:text-sm">Promoción</span>
-            </div>
-          </div>
+        <div id="horariosDisponibles" class="space-y-3">
+          <!-- Se genera dinámicamente -->
         </div>
-        
-        <div id="horariosDisponibles" class="grid gap-2"></div>
       </div>
     </div>
   </div>
@@ -236,11 +215,11 @@
   <!-- Modal Confirmación -->
   <div id="confirmacionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
-      <h2 class="text-3xl font-bold text-green-600 mb-6">Confirmar Reserva</h2>
+      <h2 class="text-3xl font-bold text-primary mb-6">Confirmar Reserva</h2>
       <div id="confirmacionDetalle" class="space-y-2 mb-6"></div>
       <div class="flex gap-4">
         <button onclick="confirmarReserva()" 
-          class="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">
+          class="flex-1 py-3 btn-primary rounded-xl font-bold hover:shadow-lg">
           Confirmar
         </button>
         <button onclick="cerrarModal()" 
@@ -255,7 +234,7 @@
   <div id="misReservasModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl font-bold text-green-600">Mis Reservas</h2>
+        <h2 class="text-3xl font-bold text-primary">Mis Reservas</h2>
         <button onclick="cerrarMisReservas()" class="text-gray-500 hover:text-gray-700 text-3xl">×</button>
       </div>
       <div id="misReservasList"></div>
@@ -263,23 +242,18 @@
   </div>
 
   <script>
-    // Funciones para tabs
     function mostrarFormLogin() {
       document.getElementById('loginForm').classList.remove('hidden');
       document.getElementById('registerForm').classList.add('hidden');
-      document.querySelectorAll('.tab-btn')[0].classList.add('bg-green-600', 'text-white');
-      document.querySelectorAll('.tab-btn')[0].classList.remove('bg-white', 'text-gray-600');
-      document.querySelectorAll('.tab-btn')[1].classList.remove('bg-green-600', 'text-white');
-      document.querySelectorAll('.tab-btn')[1].classList.add('bg-white', 'text-gray-600');
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      document.querySelectorAll('.tab-btn')[1].classList.remove('active');
     }
 
     function mostrarFormRegistro() {
       document.getElementById('loginForm').classList.add('hidden');
       document.getElementById('registerForm').classList.remove('hidden');
-      document.querySelectorAll('.tab-btn')[1].classList.add('bg-green-600', 'text-white');
-      document.querySelectorAll('.tab-btn')[1].classList.remove('bg-white', 'text-gray-600');
-      document.querySelectorAll('.tab-btn')[0].classList.remove('bg-green-600', 'text-white');
-      document.querySelectorAll('.tab-btn')[0].classList.add('bg-white', 'text-gray-600');
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      document.querySelectorAll('.tab-btn')[0].classList.remove('active');
     }
   </script>
   <script src="app.js"></script>
