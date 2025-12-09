@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v7.0 - Selección duración estilo Joger + Color #26422b
+// app.js - Frontend Distrito Padel v7.1 - Selección duración modal estilo Joger
 const API_BASE = '';
 
 let state = {
@@ -226,15 +226,13 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS - ESTILO JOGER (con opciones de duración)
+// RENDERIZAR HORARIOS - ESTILO JOGER (Click para modal de duraciones)
 function renderizarHorarios() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
 
   const hoy = new Date();
   const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-  
-  const duraciones = [1, 1.5, 2]; // Opciones: 1h, 1.5h, 2h
 
   for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
@@ -252,42 +250,23 @@ function renderizarHorarios() {
         }
       }
 
-      // Crear contenedor para este horario
-      const horarioDiv = document.createElement('div');
-      horarioDiv.className = 'border-2 border-gray-200 rounded-xl p-3 bg-white';
-      
-      // Título del horario
-      const titulo = document.createElement('div');
-      titulo.className = 'text-base font-bold text-primary mb-2 border-b pb-2';
-      titulo.textContent = convertirA12h(hora);
-      horarioDiv.appendChild(titulo);
-
-      // Grid de duraciones
-      const duracionesGrid = document.createElement('div');
-      duracionesGrid.className = 'grid grid-cols-3 gap-2';
-
-      // Generar opciones de duración para este horario
-      duraciones.forEach(duracion => {
-        const slotInicioMin = h * 60 + minutos;
-        const duracionMin = duracion * 60;
+      // Verificar si TODAS las duraciones están bloqueadas/ocupadas
+      const slotInicioMin = h * 60 + minutos;
+      const todasOcupadas = [1, 1.5, 2].every(dur => {
+        const duracionMin = dur * 60;
         const slotFinMin = slotInicioMin + duracionMin;
         const horaFinH = Math.floor(slotFinMin / 60);
         const horaFinM = slotFinMin % 60;
         
-        // Validar que no pase de las 24:00
-        if (horaFinH > 24 || (horaFinH === 24 && horaFinM > 0)) {
-          return; // Skip esta duración
-        }
-
-        // Verificar si está ocupado
+        if (horaFinH > 24 || (horaFinH === 24 && horaFinM > 0)) return true;
+        
         const ocupado = state.reservas.some(r => {
           const horaArr = r.hora_inicio.split(':');
           const inicioMin = parseInt(horaArr[0]) * 60 + parseInt(horaArr[1] || 0);
           const finMin = inicioMin + (parseFloat(r.duracion) * 60);
           return (slotInicioMin < finMin && slotFinMin > inicioMin);
         });
-
-        // Verificar bloqueos
+        
         const bloqueado = state.bloqueos.some(b => {
           if (!b.hora_inicio || !b.hora_fin) return true;
           const bloqArr1 = b.hora_inicio.split(':');
@@ -296,113 +275,172 @@ function renderizarHorarios() {
           const bloqFinMin = parseInt(bloqArr2[0]) * 60 + parseInt(bloqArr2[1] || 0);
           return (slotInicioMin < bloqFinMin && slotFinMin > bloqInicioMin);
         });
-
-        // Calcular precio
-        let precioBase = 0;
-        let horasRestantes = duracion;
-        let horaCalculo = horaActual;
         
-        while (horasRestantes > 0) {
-          const precioHora = horaCalculo < state.config.precios.cambioTarifa ? 
-            state.config.precios.horaDia : 
-            state.config.precios.horaNoche;
-          
-          const horasEnEsteTarifa = Math.min(horasRestantes, 
-            horaCalculo < state.config.precios.cambioTarifa ? 
-              state.config.precios.cambioTarifa - horaCalculo : 
-              24 - horaCalculo
-          );
-          
-          precioBase += precioHora * horasEnEsteTarifa;
-          horasRestantes -= horasEnEsteTarifa;
-          horaCalculo += horasEnEsteTarifa;
-        }
-
-        // Verificar promoción
-        let descuento = 0;
-        const promo = state.promociones.find(p => {
-          if (!p.activa) return false;
-          
-          if (p.fecha) {
-            const promoFecha = p.fecha.split('T')[0];
-            if (promoFecha !== state.selectedDate) return false;
-          }
-          
-          if (!p.hora_inicio || !p.hora_fin) return true;
-          
-          const promoArr1 = p.hora_inicio.split(':');
-          const promoArr2 = p.hora_fin.split(':');
-          const promoInicioMin = parseInt(promoArr1[0]) * 60 + parseInt(promoArr1[1] || 0);
-          const promoFinMin = parseInt(promoArr2[0]) * 60 + parseInt(promoArr2[1] || 0);
-          
-          return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
-        });
-
-        if (promo) {
-          descuento = promo.descuento;
-        }
-
-        const precioFinal = Math.round(precioBase * (1 - descuento / 100));
-
-        // Crear slot de duración
-        const slot = document.createElement('div');
-        slot.className = `duracion-slot p-2 rounded-lg text-center ${
-          pasado ? 'opacity-40 cursor-not-allowed bg-gray-100' :
-          ocupado ? 'opacity-40 cursor-not-allowed bg-red-50 border-red-200' :
-          bloqueado ? 'opacity-40 cursor-not-allowed bg-gray-100' :
-          descuento > 0 ? 'bg-purple-50 border-purple-300' :
-          'bg-white hover:bg-primary-lighter'
-        }`;
-
-        if (!pasado && !ocupado && !bloqueado) {
-          slot.onclick = () => seleccionarHoraDuracion(hora, duracion, precioFinal, descuento, precioBase);
-        }
-
-        const duracionTexto = duracion === 1 ? '1h' : duracion === 1.5 ? '1.5h' : '2h';
-        
-        slot.innerHTML = `
-          <p class="text-xs font-bold text-gray-700">${duracionTexto}</p>
-          ${!pasado && !ocupado && !bloqueado ? `
-            <p class="text-sm font-bold ${descuento > 0 ? 'text-purple-600' : 'text-primary'} mt-1">
-              $${precioFinal}
-            </p>
-            ${descuento > 0 ? `<p class="text-[9px] text-purple-600 font-bold">${descuento}% OFF</p>` : ''}
-          ` : `
-            <p class="text-[10px] text-gray-500 mt-1">
-              ${pasado ? 'Pasado' : ocupado ? 'Ocupado' : 'Bloqueado'}
-            </p>
-          `}
-        `;
-
-        duracionesGrid.appendChild(slot);
+        return ocupado || bloqueado;
       });
 
-      horarioDiv.appendChild(duracionesGrid);
-      container.appendChild(horarioDiv);
+      const div = document.createElement('div');
+      div.className = `p-3 rounded-lg border-2 cursor-pointer transition text-center ${
+        pasado ? 'bg-gray-200 cursor-not-allowed opacity-50' :
+        todasOcupadas ? 'bg-red-100 border-red-300 cursor-not-allowed opacity-50' :
+        'bg-primary-lighter border-primary hover:shadow-md hover:border-primary-light'
+      }`;
+
+      if (!pasado && !todasOcupadas) {
+        div.onclick = () => mostrarModalDuraciones(hora);
+      }
+
+      div.innerHTML = `
+        <p class="font-bold text-base text-gray-800">${convertirA12h(hora)}</p>
+        ${pasado ? '<p class="text-xs text-gray-500 mt-1">Pasado</p>' : 
+          todasOcupadas ? '<p class="text-xs text-red-600 mt-1">Ocupado</p>' : 
+          '<p class="text-xs text-primary mt-1">Disponible</p>'}
+      `;
+
+      container.appendChild(div);
     }
   }
 }
 
-// SELECCIONAR HORA Y DURACIÓN
-function seleccionarHoraDuracion(hora, duracion, precioFinal, descuento, precioBase) {
+// MOSTRAR MODAL DE DURACIONES (Estilo Joger)
+function mostrarModalDuraciones(hora) {
   state.selectedTime = hora;
-  state.selectedDuration = duracion;
+  const [h, m] = hora.split(':').map(Number);
+  const slotInicioMin = h * 60 + m;
   
-  document.getElementById('confirmacionModal').classList.remove('hidden');
+  const duraciones = [1, 1.5, 2];
+  let opcionesHTML = '';
+  
+  duraciones.forEach(duracion => {
+    const duracionMin = duracion * 60;
+    const slotFinMin = slotInicioMin + duracionMin;
+    const horaFinH = Math.floor(slotFinMin / 60);
+    const horaFinM = slotFinMin % 60;
+    
+    if (horaFinH > 24 || (horaFinH === 24 && horaFinM > 0)) {
+      return;
+    }
+    
+    // Verificar si está ocupado
+    const ocupado = state.reservas.some(r => {
+      const horaArr = r.hora_inicio.split(':');
+      const inicioMin = parseInt(horaArr[0]) * 60 + parseInt(horaArr[1] || 0);
+      const finMin = inicioMin + (parseFloat(r.duracion) * 60);
+      return (slotInicioMin < finMin && slotFinMin > inicioMin);
+    });
+    
+    const bloqueado = state.bloqueos.some(b => {
+      if (!b.hora_inicio || !b.hora_fin) return true;
+      const bloqArr1 = b.hora_inicio.split(':');
+      const bloqArr2 = b.hora_fin.split(':');
+      const bloqInicioMin = parseInt(bloqArr1[0]) * 60 + parseInt(bloqArr1[1] || 0);
+      const bloqFinMin = parseInt(bloqArr2[0]) * 60 + parseInt(bloqArr2[1] || 0);
+      return (slotInicioMin < bloqFinMin && slotFinMin > bloqInicioMin);
+    });
+    
+    if (ocupado || bloqueado) {
+      return;
+    }
+    
+    // Calcular precio
+    const horaActual = h + (m / 60);
+    let precioBase = 0;
+    let horasRestantes = duracion;
+    let horaCalculo = horaActual;
+    
+    while (horasRestantes > 0) {
+      const precioHora = horaCalculo < state.config.precios.cambioTarifa ? 
+        state.config.precios.horaDia : 
+        state.config.precios.horaNoche;
+      
+      const horasEnEsteTarifa = Math.min(horasRestantes, 
+        horaCalculo < state.config.precios.cambioTarifa ? 
+          state.config.precios.cambioTarifa - horaCalculo : 
+          24 - horaCalculo
+      );
+      
+      precioBase += precioHora * horasEnEsteTarifa;
+      horasRestantes -= horasEnEsteTarifa;
+      horaCalculo += horasEnEsteTarifa;
+    }
+    
+    // Verificar promoción
+    let descuento = 0;
+    const promo = state.promociones.find(p => {
+      if (!p.activa) return false;
+      
+      if (p.fecha) {
+        const promoFecha = p.fecha.split('T')[0];
+        if (promoFecha !== state.selectedDate) return false;
+      }
+      
+      if (!p.hora_inicio || !p.hora_fin) return true;
+      
+      const promoArr1 = p.hora_inicio.split(':');
+      const promoArr2 = p.hora_fin.split(':');
+      const promoInicioMin = parseInt(promoArr1[0]) * 60 + parseInt(promoArr1[1] || 0);
+      const promoFinMin = parseInt(promoArr2[0]) * 60 + parseInt(promoArr2[1] || 0);
+      
+      return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
+    });
+    
+    if (promo) {
+      descuento = promo.descuento;
+    }
+    
+    const precioFinal = Math.round(precioBase * (1 - descuento / 100));
+    const duracionTexto = duracion === 1 ? '1h 00min' : duracion === 1.5 ? '1h 30min' : '2h 00min';
+    
+    opcionesHTML += `
+      <button onclick="seleccionarDuracion(${duracion}, ${precioFinal}, ${descuento}, ${precioBase})" 
+        class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary-lighter transition text-left mb-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="font-bold text-gray-800">${duracionTexto}</p>
+            ${descuento > 0 ? `<p class="text-xs text-purple-600 font-bold">${descuento}% OFF</p>` : ''}
+          </div>
+          <div class="text-right">
+            <p class="font-bold text-lg text-primary">$${precioFinal}</p>
+            ${descuento > 0 ? `<p class="text-xs text-gray-500 line-through">$${Math.round(precioBase)}</p>` : ''}
+          </div>
+        </div>
+      </button>
+    `;
+  });
+  
+  if (opcionesHTML === '') {
+    opcionesHTML = '<p class="text-center text-gray-500 py-4">No hay duraciones disponibles para este horario</p>';
+  }
+  
+  document.getElementById('duracionModalTitulo').textContent = `Selecciona duracion - ${convertirA12h(hora)}`;
+  document.getElementById('duracionModalOpciones').innerHTML = opcionesHTML;
+  document.getElementById('duracionModal').classList.remove('hidden');
+}
+
+// SELECCIONAR DURACIÓN
+function seleccionarDuracion(duracion, precioFinal, descuento, precioBase) {
+  state.selectedDuration = duracion;
+  cerrarModalDuracion();
   
   const duracionTexto = duracion === 1 ? '1 hora' : duracion === 1.5 ? '1.5 horas' : '2 horas';
   
   document.getElementById('confirmacionDetalle').innerHTML = `
     <p class="text-lg"><strong>Cancha:</strong> ${state.selectedCourt}</p>
     <p class="text-lg"><strong>Fecha:</strong> ${state.selectedDate}</p>
-    <p class="text-lg"><strong>Hora:</strong> ${convertirA12h(hora)}</p>
+    <p class="text-lg"><strong>Hora:</strong> ${convertirA12h(state.selectedTime)}</p>
     <p class="text-lg"><strong>Duracion:</strong> ${duracionTexto}</p>
     ${descuento > 0 ? `
       <p class="text-lg text-purple-600 font-bold"><strong>Descuento:</strong> ${descuento}%</p>
       <p class="text-lg text-gray-500 line-through">Precio: $${Math.round(precioBase)} MXN</p>
     ` : ''}
-    <p class="text-2xl font-bold mt-2" style="color: #26422b;">Total: $${precioFinal} MXN</p>
+    <p class="text-2xl font-bold text-primary mt-2">Total: $${precioFinal} MXN</p>
   `;
+  
+  document.getElementById('confirmacionModal').classList.remove('hidden');
+}
+
+function cerrarModalDuracion() {
+  document.getElementById('duracionModal').classList.add('hidden');
 }
 
 // CONFIRMAR RESERVA

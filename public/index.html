@@ -17,6 +17,7 @@
     .bg-primary-lighter { background-color: var(--primary-green-lighter); }
     .text-primary { color: var(--primary-green); }
     .border-primary { border-color: var(--primary-green); }
+    .border-primary-light { border-color: var(--primary-green-light); }
     
     .tab-btn.active { 
       background: linear-gradient(to right, #26422b, #1e3621); 
@@ -31,36 +32,6 @@
       border-color: #26422b;
     }
     
-    /* Horarios compactos */
-    .horario-slot {
-      transition: all 0.2s ease;
-      cursor: pointer;
-      border: 2px solid transparent;
-    }
-    .horario-slot:hover:not(.ocupado):not(.pasado) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(38, 66, 43, 0.3);
-      border-color: #26422b;
-    }
-    .horario-slot.ocupado, .horario-slot.pasado {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    
-    /* Duración slot */
-    .duracion-slot {
-      transition: all 0.2s ease;
-      cursor: pointer;
-      border: 2px solid #e5e7eb;
-      background: white;
-    }
-    .duracion-slot:hover {
-      border-color: #26422b;
-      background-color: #d4e6d6;
-      transform: scale(1.02);
-    }
-    
-    /* Botones personalizados */
     .btn-primary {
       background: linear-gradient(to right, #26422b, #1e3621);
       color: white;
@@ -79,13 +50,13 @@
       <div class="text-center mb-8">
         <img src="logo.jpg" alt="Distrito Padel" class="w-20 h-20 mx-auto mb-4 rounded-xl shadow-lg">
         <h1 class="text-4xl font-bold text-primary mb-2">Distrito Padel</h1>
-        <p class="text-gray-600">Reserva tu cancha fácilmente</p>
+        <p class="text-gray-600">Reserva tu cancha facilmente</p>
       </div>
 
       <!-- Tabs -->
       <div class="flex gap-2 mb-6">
         <button class="tab-btn flex-1 py-3 px-6 rounded-lg font-bold shadow active" onclick="mostrarFormLogin()">
-          Iniciar Sesión
+          Iniciar Sesion
         </button>
         <button class="tab-btn flex-1 py-3 px-6 rounded-lg font-bold bg-white text-gray-600" onclick="mostrarFormRegistro()">
           Registro
@@ -94,7 +65,7 @@
 
       <!-- Login Form -->
       <div id="loginForm" class="bg-white rounded-xl shadow-md p-8">
-        <h2 class="text-2xl font-bold mb-6 text-gray-800">Iniciar Sesión</h2>
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Iniciar Sesion</h2>
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-bold mb-2">Email</label>
@@ -102,7 +73,7 @@
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
-            <label class="block text-sm font-bold mb-2">Contraseña</label>
+            <label class="block text-sm font-bold mb-2">Contrasena</label>
             <input type="password" id="loginPassword" placeholder="••••••••" 
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
@@ -119,7 +90,7 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-bold mb-2">Nombre Completo</label>
-            <input type="text" id="regNombre" placeholder="Juan Pérez" 
+            <input type="text" id="regNombre" placeholder="Juan Perez" 
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
@@ -128,13 +99,13 @@
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
-            <label class="block text-sm font-bold mb-2">Teléfono (10 dígitos)</label>
+            <label class="block text-sm font-bold mb-2">Telefono (10 digitos)</label>
             <input type="tel" id="regTelefono" placeholder="5551234567" maxlength="10"
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
-            <label class="block text-sm font-bold mb-2">Contraseña</label>
-            <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" 
+            <label class="block text-sm font-bold mb-2">Contrasena</label>
+            <input type="password" id="regPassword" placeholder="Minimo 6 caracteres" 
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <button onclick="registrar()" 
@@ -160,7 +131,7 @@
         </div>
         <div id="userInfo" class="text-right">
           <p class="font-bold" id="userNombre"></p>
-          <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">Cerrar sesión</button>
+          <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">Cerrar sesion</button>
         </div>
       </div>
     </header>
@@ -203,16 +174,29 @@
       <!-- Horarios Disponibles -->
       <div class="bg-white rounded-xl shadow-md p-6 mb-6">
         <h2 class="text-2xl font-bold mb-4 text-primary">Horarios Disponibles</h2>
-        <p class="text-sm text-gray-600 mb-4">Selecciona un horario y duración</p>
+        <p class="text-sm text-gray-600 mb-4">Selecciona un horario</p>
         
-        <div id="horariosDisponibles" class="space-y-3">
-          <!-- Se genera dinámicamente -->
+        <div id="horariosDisponibles" class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-2">
+          <!-- Se genera dinamicamente -->
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal Confirmación -->
+  <!-- Modal Seleccion de Duracion (Estilo Joger) -->
+  <div id="duracionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-primary" id="duracionModalTitulo">Selecciona duracion</h2>
+        <button onclick="cerrarModalDuracion()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+      </div>
+      <div id="duracionModalOpciones">
+        <!-- Se genera dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmacion -->
   <div id="confirmacionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
       <h2 class="text-3xl font-bold text-primary mb-6">Confirmar Reserva</h2>
@@ -235,7 +219,7 @@
     <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-3xl font-bold text-primary">Mis Reservas</h2>
-        <button onclick="cerrarMisReservas()" class="text-gray-500 hover:text-gray-700 text-3xl">×</button>
+        <button onclick="cerrarMisReservas()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
       </div>
       <div id="misReservasList"></div>
     </div>
