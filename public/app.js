@@ -469,24 +469,33 @@ function mostrarModalDuraciones(hora) {
   document.getElementById('duracionModal').classList.remove('hidden');
 }
 
-// CALCULAR PRECIO PRECISO
+// CALCULAR PRECIO PRECISO - CORREGIDA PARA EVITAR LOOP INFINITO
 function calcularPrecioPreciso(horaInicio, duracion) {
   const [h, m] = horaInicio.split(':').map(Number);
   const horaDecimal = h + (m / 60);
   const cambioTarifa = state.config.precios.cambioTarifa;
   
   let precioBase = 0;
-  let horaActual = horaDecimal;
-  let duracionRestante = duracion;
   
-  while (duracionRestante > 0) {
-    const precioHora = horaActual < cambioTarifa ? state.config.precios.horaDia : state.config.precios.horaNoche;
-    const horasTarifa = Math.min(duracionRestante, Math.abs(cambioTarifa - horaActual));
-    precioBase += precioHora * horasTarifa;
-    duracionRestante -= horasTarifa;
-    horaActual += horasTarifa;
+  // Calcular fin de reserva
+  const horaFin = horaDecimal + duracion;
+  
+  // Si toda la reserva es antes del cambio de tarifa
+  if (horaFin <= cambioTarifa) {
+    precioBase = state.config.precios.horaDia * duracion;
+  } 
+  // Si toda la reserva es después del cambio de tarifa
+  else if (horaDecimal >= cambioTarifa) {
+    precioBase = state.config.precios.horaNoche * duracion;
+  } 
+  // Si la reserva cruza el cambio de tarifa
+  else {
+    const horasAntes = cambioTarifa - horaDecimal;
+    const horasDespues = duracion - horasAntes;
+    precioBase = (horasAntes * state.config.precios.horaDia) + (horasDespues * state.config.precios.horaNoche);
   }
   
+  // Aplicar promoción
   let descuento = 0;
   const promo = state.promociones.find(p => {
     if (!p.activa || p.fecha !== state.selectedDate) return false;
