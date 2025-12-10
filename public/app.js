@@ -69,12 +69,10 @@ async function mostrarDashboard() {
   const todayStr = state.serverTime.fecha;
   state.selectedDate = todayStr;
   
-  // Renderizar calendario carrusel
   renderizarCalendarioCarrusel();
   
   await Promise.all([cargarPromociones(), cargarBloqueos()]);
   
-  // Iniciar auto-refresh
   iniciarAutoRefresh();
 }
 
@@ -361,7 +359,6 @@ function renderizarHorariosPlaytomic() {
         }
       }
 
-      // Filtro: solo mostrar disponibles si está activo
       if (state.filtroSoloDisponibles && (!disponible1h.disponible || esPasado)) {
         continue;
       }
@@ -415,7 +412,7 @@ function calcularHoraFin(horaInicio, duracion) {
   return `${horaFin.toString().padStart(2, '0')}:${minutosFin.toString().padStart(2, '0')}`;
 }
 
-// MOSTRAR MODAL DURACIONES
+// MOSTRAR MODAL DURACIONES - CORREGIDA
 function mostrarModalDuraciones(hora) {
   state.selectedTime = hora;
   const [h, m] = hora.split(':').map(Number);
@@ -426,6 +423,12 @@ function mostrarModalDuraciones(hora) {
   
   duraciones.forEach(duracion => {
     const duracionMin = duracion * 60;
+    const slotFinMin = slotInicioMin + duracionMin;
+    
+    if (slotFinMin > 24 * 60) {
+      return;
+    }
+    
     const disponible = verificarSlotDisponible(slotInicioMin, duracionMin);
     
     if (!disponible.disponible) return;
@@ -589,27 +592,17 @@ async function confirmarReserva() {
   }
 }
 
-// COMPARTIR POR WHATSAPP
-function compartirPorWhatsApp(reserva) {
-  const mensaje = `Distrito Padel - Mi Reserva\n\n` +
-    `Fecha: ${formatearFecha(reserva.fecha)}\n` +
-    `Hora: ${convertirA12h(reserva.hora_inicio)} - ${convertirA12h(calcularHoraFin(reserva.hora_inicio, reserva.duracion))}\n` +
-    `Cancha: ${reserva.cancha}\n` +
-    `Precio: $${reserva.precio}\n\n` +
-    `Nos vemos en la cancha`;
-  
-  const mensajeCodificado = encodeURIComponent(mensaje);
-  const urlWhatsApp = `https://api.whatsapp.com/send?text=${mensajeCodificado}`;
-  
-  window.open(urlWhatsApp, '_blank');
-}
-
-// UTILIDADES
+// FORMATEAR FECHA - CORREGIDA
 function formatearFecha(fechaStr) {
+  if (fechaStr.includes('T')) {
+    fechaStr = fechaStr.split('T')[0];
+  }
+  
   const [year, month, day] = fechaStr.split('-');
   return `${day}/${month}/${year}`;
 }
 
+// CONVERTIR A 12H
 function convertirA12h(hora24) {
   const [h, m] = hora24.split(':');
   const hora = parseInt(h);
@@ -626,7 +619,24 @@ function cerrarMisReservas() {
   document.getElementById('misReservasModal').classList.add('hidden');
 }
 
-// MIS RESERVAS
+// COMPARTIR RESERVA WHATSAPP - NUEVA FUNCIÓN
+function compartirReservaWhatsApp(reserva) {
+  const horaFin = calcularHoraFin(reserva.hora_inicio, reserva.duracion);
+  
+  const mensaje = `Distrito Padel - Mi Reserva\n\n` +
+    `Fecha: ${reserva.fecha}\n` +
+    `Hora: ${convertirA12h(reserva.hora_inicio)} - ${convertirA12h(horaFin)}\n` +
+    `Cancha: ${reserva.cancha}\n` +
+    `Precio: $${reserva.precio}\n\n` +
+    `Nos vemos en la cancha`;
+  
+  const mensajeCodificado = encodeURIComponent(mensaje);
+  const urlWhatsApp = `https://api.whatsapp.com/send?text=${mensajeCodificado}`;
+  
+  window.open(urlWhatsApp, '_blank');
+}
+
+// MIS RESERVAS - CORREGIDA
 async function verMisReservas() {
   try {
     const res = await fetch(API_BASE + '/api/mis-reservas', {
@@ -643,13 +653,18 @@ async function verMisReservas() {
       reservas.forEach(r => {
         const div = document.createElement('div');
         div.className = 'bg-white rounded-xl p-6 mb-4 border shadow-sm';
+        
+        const fechaFormateada = r.fecha.includes('T') ? 
+          formatearFecha(r.fecha.split('T')[0]) : 
+          formatearFecha(r.fecha);
+        
         const horaFin = calcularHoraFin(r.hora_inicio, r.duracion);
         
         div.innerHTML = `
           <div class="flex justify-between items-start mb-4">
             <div>
               <p class="text-2xl font-bold text-green-600">Cancha ${r.cancha}</p>
-              <p class="text-sm text-gray-600">${formatearFecha(r.fecha)}</p>
+              <p class="text-sm text-gray-600">${fechaFormateada}</p>
               <p class="text-lg font-semibold">${convertirA12h(r.hora_inicio)} - ${convertirA12h(horaFin)}</p>
             </div>
             ${!r.pagado ? `<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-bold">Pendiente</span>` : ''}
@@ -657,7 +672,13 @@ async function verMisReservas() {
           <div class="flex justify-between items-center pt-4 border-t gap-3">
             <p class="text-2xl font-bold">$${r.precio}</p>
             <div class="flex gap-2">
-              <button onclick="compartirPorWhatsApp({fecha: '${r.fecha}', hora_inicio: '${r.hora_inicio}', duracion: ${r.duracion}, cancha: ${r.cancha}, precio: ${r.precio}})" 
+              <button onclick='compartirReservaWhatsApp(${JSON.stringify({
+                fecha: fechaFormateada,
+                hora_inicio: r.hora_inicio,
+                duracion: r.duracion,
+                cancha: r.cancha,
+                precio: r.precio
+              })})' 
                 class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
                 WhatsApp
               </button>
