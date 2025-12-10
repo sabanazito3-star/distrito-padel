@@ -19,6 +19,23 @@
     .border-primary { border-color: var(--primary-green); }
     .border-primary-light { border-color: var(--primary-green-light); }
     
+    /* Imagen de fondo para login */
+    .bg-login {
+      background-image: url('fondo-login.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    
+    /* Imagen de fondo para dashboard (opcional) */
+    .bg-dashboard {
+      background-image: url('fondo-dashboard.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+    
     .tab-btn.active { 
       background: linear-gradient(to right, #26422b, #1e3621); 
       color: white; 
@@ -43,13 +60,16 @@
 </head>
 <body class="bg-gray-50">
 
-  <!-- AUTH SECTION -->
-  <div id="authSection" class="min-h-screen flex items-center justify-center px-4 py-12">
-    <div class="max-w-md w-full">
-      <!-- Logo -->
+  <!-- AUTH SECTION CON FONDO -->
+  <div id="authSection" class="min-h-screen flex items-center justify-center px-4 py-12 bg-login">
+    <!-- Overlay oscuro opcional para mejor legibilidad -->
+    <div class="absolute inset-0 bg-black opacity-40"></div>
+    
+    <div class="max-w-md w-full relative z-10">
+      <!-- Logo MAS GRANDE -->
       <div class="text-center mb-8">
-        <img src="logo.png" alt="Distrito Padel" class="w-48 mx-auto mb-4 object-contain">
-        <p class="text-gray-600 text-lg">Reserva tu cancha facilmente</p>
+        <img src="logo.png" alt="Distrito Padel" class="w-full max-w-2xl mx-auto mb-4 object-contain">
+        <p class="text-white text-xl font-bold drop-shadow-lg">Reserva tu cancha facilmente</p>
       </div>
 
       <!-- Tabs -->
@@ -118,21 +138,22 @@
 
   <!-- DASHBOARD SECTION -->
   <div id="dashboardSection" class="hidden min-h-screen">
-    <!-- Header -->
+    <!-- Header CON LOGO MAS GRANDE -->
     <header class="bg-primary text-white py-4 shadow-lg">
       <div class="container mx-auto px-4 flex items-center justify-between">
         <div class="flex items-center">
-          <!-- Solo logo -->
-          <img src="logo.png" alt="Distrito Padel" class="h-16 object-contain">
+          <!-- Logo triple de grande -->
+          <img src="logo.png" alt="Distrito Padel" class="h-24 object-contain">
         </div>
         <div id="userInfo" class="text-right">
-          <p class="font-bold" id="userNombre"></p>
+          <p class="font-bold text-lg" id="userNombre"></p>
           <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">Cerrar sesion</button>
         </div>
       </div>
     </header>
 
-    <div class="container mx-auto px-4 py-8">
+    <!-- Contenido con fondo opcional -->
+    <div class="container mx-auto px-4 py-8 bg-dashboard">
       <!-- Botones -->
       <div class="flex gap-4 mb-6">
         <button onclick="verMisReservas()" 
