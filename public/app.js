@@ -306,7 +306,7 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS PLAYTOMIC
+// RENDERIZAR HORARIOS PLAYTOMIC - CORREGIDA
 function renderizarHorariosPlaytomic() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
@@ -326,9 +326,13 @@ function renderizarHorariosPlaytomic() {
       const slotInicioMin = h * 60 + minutos;
       
       let esPasado = false;
-      if (state.selectedDate < hoyStr || 
-          (state.selectedDate === hoyStr && slotInicioMin <= (horaServidor * 60 + minutosServidor))) {
+      if (state.selectedDate < hoyStr) {
         esPasado = true;
+      } else if (state.selectedDate === hoyStr) {
+        const horaActualServidor = horaServidor * 60 + minutosServidor;
+        if (slotInicioMin < horaActualServidor) {
+          esPasado = true;
+        }
       }
 
       const disponible1h = verificarSlotDisponible(slotInicioMin, 60);
@@ -457,7 +461,7 @@ function mostrarModalDuraciones(hora) {
   });
   
   if (opcionesHTML === '') {
-    opcionesHTML = '<p class="text-center text-gray-500 py-8">No hay duraciones disponibles</p>';
+    opcionesHTML = '<p class="text-center text-gray-500 py-8">No hay duraciones disponibles para este horario</p>';
   }
   
   document.getElementById('duracionModalTitulo').textContent = `${convertirA12h(hora)} - Selecciona duracion`;
@@ -549,16 +553,18 @@ function cerrarModalDuracion() {
   document.getElementById('duracionModal').classList.add('hidden');
 }
 
-// CONFIRMAR RESERVA
+// CONFIRMAR RESERVA - CORREGIDA
 async function confirmarReserva() {
   await cargarHoraServidor();
   
   const [h, m] = state.selectedTime.split(':').map(Number);
-  const horaReserva = h + (m / 60);
-  const horaActual = state.serverTime.hora + (state.serverTime.minutos / 60);
+  const horaReservaMin = h * 60 + m;
+  const horaActualMin = state.serverTime.hora * 60 + state.serverTime.minutos;
   
-  if (state.selectedDate === state.serverTime.fecha && horaReserva <= horaActual) {
+  if (state.selectedDate === state.serverTime.fecha && horaReservaMin < horaActualMin) {
     alert('Esta hora ya paso');
+    cerrarModal();
+    cargarDisponibilidad();
     return;
   }
   
@@ -619,7 +625,7 @@ function cerrarMisReservas() {
   document.getElementById('misReservasModal').classList.add('hidden');
 }
 
-// COMPARTIR RESERVA WHATSAPP - NUEVA FUNCIÓN
+// COMPARTIR RESERVA WHATSAPP
 function compartirReservaWhatsApp(reserva) {
   const horaFin = calcularHoraFin(reserva.hora_inicio, reserva.duracion);
   
