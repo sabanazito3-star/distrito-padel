@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v7.2 - Validación servidor + Rangos de hora
+// app.js - Frontend Distrito Padel v8.0 - Calendario Carrusel + Filtros + WhatsApp + Auto-refresh
 const API_BASE = '';
 
 let state = {
@@ -13,8 +13,11 @@ let state = {
   promociones: [],
   bloqueos: [],
   config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } },
-  serverTime: null // Hora del servidor
+  serverTime: null,
+  filtroSoloDisponibles: false
 };
+
+let autoRefreshInterval = null;
 
 // INICIALIZAR
 document.addEventListener('DOMContentLoaded', () => {
@@ -59,56 +62,113 @@ async function mostrarDashboard() {
   document.getElementById('dashboardSection').classList.remove('hidden');
   document.getElementById('userNombre').textContent = state.nombre;
   
-  // Esperar a que se cargue la hora del servidor
   if (!state.serverTime) {
     await cargarHoraServidor();
   }
   
   const todayStr = state.serverTime.fecha;
-  
-  const serverDate = new Date(state.serverTime.timestamp);
-  const maxDate = new Date(serverDate);
-  maxDate.setDate(serverDate.getDate() + 7);
-  const maxYear = maxDate.getFullYear();
-  const maxMonth = String(maxDate.getMonth() + 1).padStart(2, '0');
-  const maxDay = String(maxDate.getDate()).padStart(2, '0');
-  const maxDateStr = `${maxYear}-${maxMonth}-${maxDay}`;
-  
-  const dateInput = document.getElementById('fechaReserva');
-  dateInput.min = todayStr;
-  dateInput.max = maxDateStr;
-  dateInput.value = todayStr;
   state.selectedDate = todayStr;
   
-  dateInput.addEventListener('change', async function() {
-    // Revalidar con el servidor
-    await cargarHoraServidor();
-    const serverToday = state.serverTime.fecha;
-    const selectedValue = this.value;
-    
-    if (selectedValue < serverToday) {
-      alert('No puedes reservar en fechas pasadas');
-      this.value = serverToday;
-      state.selectedDate = serverToday;
-      return;
-    }
-    
-    if (selectedValue > maxDateStr) {
-      alert('Solo puedes reservar hasta 7 dias adelante');
-      this.value = maxDateStr;
-      state.selectedDate = maxDateStr;
-      return;
-    }
-    
-    state.selectedDate = selectedValue;
-    
-    if (state.selectedCourt) {
-      cargarDisponibilidad();
-    }
-  });
+  // Renderizar calendario carrusel
+  renderizarCalendarioCarrusel();
   
-  cargarPromociones();
-  cargarBloqueos();
+  await Promise.all([cargarPromociones(), cargarBloqueos()]);
+  
+  // Iniciar auto-refresh
+  iniciarAutoRefresh();
+}
+
+// GENERAR CALENDARIO CARRUSEL
+function generarCalendarioCarrusel() {
+  if (!state.serverTime) return [];
+  
+  const serverDate = new Date(state.serverTime.timestamp);
+  const dias = [];
+  
+  for (let i = 0; i < 7; i++) {
+    const fecha = new Date(serverDate);
+    fecha.setDate(serverDate.getDate() + i);
+    
+    const year = fecha.getFullYear();
+    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+    const day = String(fecha.getDate()).padStart(2, '0');
+    const fechaStr = `${year}-${month}-${day}`;
+    
+    const nombreDia = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'][fecha.getDay()];
+    const nombreMes = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][fecha.getMonth()];
+    
+    dias.push({
+      fechaStr,
+      dia: day,
+      nombreDia,
+      mes: nombreMes,
+      esHoy: i === 0
+    });
+  }
+  
+  return dias;
+}
+
+// RENDERIZAR CALENDARIO CARRUSEL
+function renderizarCalendarioCarrusel() {
+  const dias = generarCalendarioCarrusel();
+  const container = document.getElementById('calendarioCarrusel');
+  
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="flex gap-3 overflow-x-auto pb-2 px-1" style="scrollbar-width: thin;">
+      ${dias.map(d => `
+        <button 
+          onclick="seleccionarFechaCarrusel('${d.fechaStr}')"
+          class="flex-shrink-0 w-20 p-3 rounded-xl border-2 transition-all ${
+            state.selectedDate === d.fechaStr 
+              ? 'bg-primary border-primary text-white shadow-lg scale-105' 
+              : 'bg-white border-gray-200 hover:border-primary hover:shadow-md'
+          }">
+          <p class="text-xs font-semibold ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-gray-500'}">${d.nombreDia}</p>
+          <p class="text-2xl font-bold my-1">${d.dia}</p>
+          <p class="text-xs ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-gray-600'}">${d.mes}</p>
+          ${d.esHoy ? `<p class="text-xs font-bold mt-1 ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-primary'}">Hoy</p>` : ''}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+// SELECCIONAR FECHA CARRUSEL
+function seleccionarFechaCarrusel(fecha) {
+  state.selectedDate = fecha;
+  renderizarCalendarioCarrusel();
+  if (state.selectedCourt) {
+    cargarDisponibilidad();
+  }
+}
+
+// TOGGLE FILTRO DISPONIBLES
+function toggleFiltroDisponibles() {
+  state.filtroSoloDisponibles = !state.filtroSoloDisponibles;
+  renderizarHorariosPlaytomic();
+}
+
+// AUTO-REFRESH
+function iniciarAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+  }
+  
+  autoRefreshInterval = setInterval(async () => {
+    if (state.selectedCourt && state.selectedDate) {
+      await cargarDisponibilidad();
+    }
+  }, 30000);
+}
+
+function detenerAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
 }
 
 // REGISTRO
@@ -186,6 +246,7 @@ async function login() {
 
 // LOGOUT
 function logout() {
+  detenerAutoRefresh();
   state.token = '';
   state.email = '';
   state.nombre = '';
@@ -227,15 +288,12 @@ function seleccionarCancha(cancha) {
 
 // CARGAR DISPONIBILIDAD
 async function cargarDisponibilidad() {
-  const fecha = document.getElementById('fechaReserva').value;
+  const fecha = state.selectedDate;
   const cancha = state.selectedCourt;
 
   if (!fecha || !cancha) return;
   
-  // Revalidar hora del servidor antes de cargar
   await cargarHoraServidor();
-
-  state.selectedDate = fecha;
 
   try {
     const res = await fetch(API_BASE + `/api/disponibilidad?fecha=${fecha}&cancha=${cancha}`);
@@ -244,19 +302,19 @@ async function cargarDisponibilidad() {
     state.reservas = data.reservas || [];
     state.bloqueos = data.bloqueos || [];
     
-    renderizarHorarios();
+    renderizarHorariosPlaytomic();
   } catch (err) {
     console.error('Error disponibilidad:', err);
   }
 }
 
-// RENDERIZAR HORARIOS - Validación con servidor
-function renderizarHorarios() {
+// RENDERIZAR HORARIOS PLAYTOMIC
+function renderizarHorariosPlaytomic() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
 
   if (!state.serverTime) {
-    container.innerHTML = '<p class="text-center text-gray-500 py-4">Cargando...</p>';
+    container.innerHTML = '<p class="text-center text-gray-500 py-4">Cargando horarios...</p>';
     return;
   }
 
@@ -266,70 +324,86 @@ function renderizarHorarios() {
 
   for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
-      const horaActual = h + (minutos / 60);
       const hora = `${h.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+      const slotInicioMin = h * 60 + minutos;
       
-      // Verificar si la hora ya pasó (usando hora del servidor)
-      let pasado = false;
-      if (state.selectedDate < hoyStr) {
-        pasado = true;
-      } else if (state.selectedDate === hoyStr) {
-        const horaActualServidor = horaServidor + (minutosServidor / 60);
-        if (horaActual <= horaActualServidor) {
-          pasado = true;
+      let esPasado = false;
+      if (state.selectedDate < hoyStr || 
+          (state.selectedDate === hoyStr && slotInicioMin <= (horaServidor * 60 + minutosServidor))) {
+        esPasado = true;
+      }
+
+      const disponible1h = verificarSlotDisponible(slotInicioMin, 60);
+      
+      const promoActiva = state.promociones.find(p => {
+        if (!p.activa || p.fecha !== state.selectedDate) return false;
+        if (!p.hora_inicio) return true;
+        const [pH, pM] = p.hora_inicio.split(':').map(Number);
+        const promoInicioMin = pH * 60 + pM;
+        const [pHf, pMf] = p.hora_fin.split(':').map(Number);
+        const promoFinMin = pHf * 60 + pMf;
+        return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
+      });
+
+      let badgeClass = 'bg-gray-200 text-gray-600 cursor-not-allowed';
+      let badgeText = 'Pasado';
+      
+      if (!esPasado) {
+        if (!disponible1h.disponible) {
+          badgeClass = 'bg-red-100 border-red-400 text-red-800';
+          badgeText = 'Ocupado';
+        } else if (promoActiva) {
+          badgeClass = 'bg-yellow-100 border-yellow-400 text-yellow-800 font-bold';
+          badgeText = `${promoActiva.descuento}% OFF`;
+        } else {
+          badgeClass = 'bg-green-100 border-green-400 text-green-800 hover:shadow-lg hover:scale-105';
+          badgeText = 'Disponible';
         }
       }
 
-      // Verificar si TODAS las duraciones están bloqueadas/ocupadas
-      const slotInicioMin = h * 60 + minutos;
-      const todasOcupadas = [1, 1.5, 2].every(dur => {
-        const duracionMin = dur * 60;
-        const slotFinMin = slotInicioMin + duracionMin;
-        const horaFinH = Math.floor(slotFinMin / 60);
-        const horaFinM = slotFinMin % 60;
-        
-        if (horaFinH > 24 || (horaFinH === 24 && horaFinM > 0)) return true;
-        
-        const ocupado = state.reservas.some(r => {
-          const horaArr = r.hora_inicio.split(':');
-          const inicioMin = parseInt(horaArr[0]) * 60 + parseInt(horaArr[1] || 0);
-          const finMin = inicioMin + (parseFloat(r.duracion) * 60);
-          return (slotInicioMin < finMin && slotFinMin > inicioMin);
-        });
-        
-        const bloqueado = state.bloqueos.some(b => {
-          if (!b.hora_inicio || !b.hora_fin) return true;
-          const bloqArr1 = b.hora_inicio.split(':');
-          const bloqArr2 = b.hora_fin.split(':');
-          const bloqInicioMin = parseInt(bloqArr1[0]) * 60 + parseInt(bloqArr1[1] || 0);
-          const bloqFinMin = parseInt(bloqArr2[0]) * 60 + parseInt(bloqArr2[1] || 0);
-          return (slotInicioMin < bloqFinMin && slotFinMin > bloqInicioMin);
-        });
-        
-        return ocupado || bloqueado;
-      });
+      // Filtro: solo mostrar disponibles si está activo
+      if (state.filtroSoloDisponibles && (!disponible1h.disponible || esPasado)) {
+        continue;
+      }
 
       const div = document.createElement('div');
-      div.className = `p-3 rounded-lg border-2 cursor-pointer transition text-center ${
-        pasado ? 'bg-gray-200 cursor-not-allowed opacity-50' :
-        todasOcupadas ? 'bg-red-100 border-red-300 cursor-not-allowed opacity-50' :
-        'bg-primary-lighter border-primary hover:shadow-md hover:border-primary-light'
-      }`;
-
-      if (!pasado && !todasOcupadas) {
+      div.className = `w-24 h-20 p-2 rounded-xl border-2 ${badgeClass} flex flex-col items-center justify-center cursor-pointer transition-all m-1 shadow-sm hover:shadow-md`;
+      
+      if (!esPasado && disponible1h.disponible) {
         div.onclick = () => mostrarModalDuraciones(hora);
       }
 
       div.innerHTML = `
-        <p class="font-bold text-base text-gray-800">${convertirA12h(hora)}</p>
-        ${pasado ? '<p class="text-xs text-gray-500 mt-1">Pasado</p>' : 
-          todasOcupadas ? '<p class="text-xs text-red-600 mt-1">Ocupado</p>' : 
-          '<p class="text-xs text-primary mt-1">Disponible</p>'}
+        <div class="text-lg font-bold">${convertirA12h(hora)}</div>
+        <div class="text-sm mt-1">${badgeText}</div>
       `;
 
       container.appendChild(div);
     }
   }
+}
+
+// VERIFICAR SLOT DISPONIBLE
+function verificarSlotDisponible(inicioMin, duracionMin) {
+  const finMin = inicioMin + duracionMin;
+  
+  const ocupado = state.reservas.some(r => {
+    const [rh, rm] = r.hora_inicio.split(':').map(Number);
+    const rInicioMin = rh * 60 + rm;
+    const rFinMin = rInicioMin + (parseFloat(r.duracion) * 60);
+    return inicioMin < rFinMin && finMin > rInicioMin;
+  });
+  
+  const bloqueado = state.bloqueos.some(b => {
+    if (!b.hora_inicio || !b.hora_fin) return true;
+    const [bh, bm] = b.hora_inicio.split(':').map(Number);
+    const bInicioMin = bh * 60 + bm;
+    const [bhf, bmf] = b.hora_fin.split(':').map(Number);
+    const bFinMin = bhf * 60 + bmf;
+    return inicioMin < bFinMin && finMin > bInicioMin;
+  });
+  
+  return { disponible: !ocupado && !bloqueado };
 }
 
 // CALCULAR HORA FIN
@@ -341,7 +415,7 @@ function calcularHoraFin(horaInicio, duracion) {
   return `${horaFin.toString().padStart(2, '0')}:${minutosFin.toString().padStart(2, '0')}`;
 }
 
-// MOSTRAR MODAL DE DURACIONES
+// MOSTRAR MODAL DURACIONES
 function mostrarModalDuraciones(hora) {
   state.selectedTime = hora;
   const [h, m] = hora.split(':').map(Number);
@@ -352,98 +426,27 @@ function mostrarModalDuraciones(hora) {
   
   duraciones.forEach(duracion => {
     const duracionMin = duracion * 60;
-    const slotFinMin = slotInicioMin + duracionMin;
-    const horaFinH = Math.floor(slotFinMin / 60);
-    const horaFinM = slotFinMin % 60;
+    const disponible = verificarSlotDisponible(slotInicioMin, duracionMin);
     
-    if (horaFinH > 24 || (horaFinH === 24 && horaFinM > 0)) {
-      return;
-    }
+    if (!disponible.disponible) return;
     
-    const ocupado = state.reservas.some(r => {
-      const horaArr = r.hora_inicio.split(':');
-      const inicioMin = parseInt(horaArr[0]) * 60 + parseInt(horaArr[1] || 0);
-      const finMin = inicioMin + (parseFloat(r.duracion) * 60);
-      return (slotInicioMin < finMin && slotFinMin > inicioMin);
-    });
+    const precioData = calcularPrecioPreciso(hora, duracion);
     
-    const bloqueado = state.bloqueos.some(b => {
-      if (!b.hora_inicio || !b.hora_fin) return true;
-      const bloqArr1 = b.hora_inicio.split(':');
-      const bloqArr2 = b.hora_fin.split(':');
-      const bloqInicioMin = parseInt(bloqArr1[0]) * 60 + parseInt(bloqArr1[1] || 0);
-      const bloqFinMin = parseInt(bloqArr2[0]) * 60 + parseInt(bloqArr2[1] || 0);
-      return (slotInicioMin < bloqFinMin && slotFinMin > bloqInicioMin);
-    });
-    
-    if (ocupado || bloqueado) {
-      return;
-    }
-    
-    // Calcular precio
-    const horaActual = h + (m / 60);
-    let precioBase = 0;
-    let horasRestantes = duracion;
-    let horaCalculo = horaActual;
-    
-    while (horasRestantes > 0) {
-      const precioHora = horaCalculo < state.config.precios.cambioTarifa ? 
-        state.config.precios.horaDia : 
-        state.config.precios.horaNoche;
-      
-      const horasEnEsteTarifa = Math.min(horasRestantes, 
-        horaCalculo < state.config.precios.cambioTarifa ? 
-          state.config.precios.cambioTarifa - horaCalculo : 
-          24 - horaCalculo
-      );
-      
-      precioBase += precioHora * horasEnEsteTarifa;
-      horasRestantes -= horasEnEsteTarifa;
-      horaCalculo += horasEnEsteTarifa;
-    }
-    
-    // Verificar promoción
-    let descuento = 0;
-    const promo = state.promociones.find(p => {
-      if (!p.activa) return false;
-      
-      if (p.fecha) {
-        const promoFecha = p.fecha.split('T')[0];
-        if (promoFecha !== state.selectedDate) return false;
-      }
-      
-      if (!p.hora_inicio || !p.hora_fin) return true;
-      
-      const promoArr1 = p.hora_inicio.split(':');
-      const promoArr2 = p.hora_fin.split(':');
-      const promoInicioMin = parseInt(promoArr1[0]) * 60 + parseInt(promoArr1[1] || 0);
-      const promoFinMin = parseInt(promoArr2[0]) * 60 + parseInt(promoArr2[1] || 0);
-      
-      return slotInicioMin >= promoInicioMin && slotInicioMin < promoFinMin;
-    });
-    
-    if (promo) {
-      descuento = promo.descuento;
-    }
-    
-    const precioFinal = Math.round(precioBase * (1 - descuento / 100));
-    const duracionTexto = duracion === 1 ? '1h 00min' : duracion === 1.5 ? '1h 30min' : '2h 00min';
-    
-    // Calcular hora fin
+    const duracionTexto = duracion === 1 ? '1h' : duracion === 1.5 ? '1h 30m' : '2h';
     const horaFin = calcularHoraFin(hora, duracion);
     
     opcionesHTML += `
-      <button onclick="seleccionarDuracion(${duracion}, ${precioFinal}, ${descuento}, ${precioBase}, '${horaFin}')" 
-        class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary-lighter transition text-left mb-3">
+      <button onclick="seleccionarDuracion(${duracion}, ${precioData.precioFinal}, ${precioData.descuento}, ${precioData.precioBase}, '${horaFin}')" 
+        class="w-full p-4 border-2 rounded-xl hover:border-green-400 hover:shadow-lg transition-all text-left mb-3 ${precioData.descuento > 0 ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 bg-white'}">
         <div class="flex justify-between items-center">
           <div>
-            <p class="font-bold text-gray-800">${duracionTexto}</p>
-            <p class="text-xs text-gray-600">${convertirA12h(hora)} - ${convertirA12h(horaFin)}</p>
-            ${descuento > 0 ? `<p class="text-xs text-purple-600 font-bold">${descuento}% OFF</p>` : ''}
+            <p class="font-bold text-lg">${duracionTexto}</p>
+            <p class="text-sm text-gray-600">${convertirA12h(hora)} - ${convertirA12h(horaFin)}</p>
+            ${precioData.descuento > 0 ? `<p class="text-sm font-bold text-yellow-700 mt-1">${precioData.descuento}% OFF</p>` : ''}
           </div>
           <div class="text-right">
-            <p class="font-bold text-lg text-primary">$${precioFinal}</p>
-            ${descuento > 0 ? `<p class="text-xs text-gray-500 line-through">$${Math.round(precioBase)}</p>` : ''}
+            <p class="text-2xl font-bold text-green-600">$${precioData.precioFinal}</p>
+            ${precioData.descuento > 0 ? `<p class="text-sm text-gray-500 line-through">$${Math.round(precioData.precioBase)}</p>` : ''}
           </div>
         </div>
       </button>
@@ -451,31 +454,89 @@ function mostrarModalDuraciones(hora) {
   });
   
   if (opcionesHTML === '') {
-    opcionesHTML = '<p class="text-center text-gray-500 py-4">No hay duraciones disponibles para este horario</p>';
+    opcionesHTML = '<p class="text-center text-gray-500 py-8">No hay duraciones disponibles</p>';
   }
   
-  document.getElementById('duracionModalTitulo').textContent = `Selecciona duracion - ${convertirA12h(hora)}`;
+  document.getElementById('duracionModalTitulo').textContent = `${convertirA12h(hora)} - Selecciona duracion`;
   document.getElementById('duracionModalOpciones').innerHTML = opcionesHTML;
   document.getElementById('duracionModal').classList.remove('hidden');
 }
 
-// SELECCIONAR DURACIÓN
+// CALCULAR PRECIO PRECISO
+function calcularPrecioPreciso(horaInicio, duracion) {
+  const [h, m] = horaInicio.split(':').map(Number);
+  const horaDecimal = h + (m / 60);
+  const cambioTarifa = state.config.precios.cambioTarifa;
+  
+  let precioBase = 0;
+  let horaActual = horaDecimal;
+  let duracionRestante = duracion;
+  
+  while (duracionRestante > 0) {
+    const precioHora = horaActual < cambioTarifa ? state.config.precios.horaDia : state.config.precios.horaNoche;
+    const horasTarifa = Math.min(duracionRestante, Math.abs(cambioTarifa - horaActual));
+    precioBase += precioHora * horasTarifa;
+    duracionRestante -= horasTarifa;
+    horaActual += horasTarifa;
+  }
+  
+  let descuento = 0;
+  const promo = state.promociones.find(p => {
+    if (!p.activa || p.fecha !== state.selectedDate) return false;
+    if (!p.hora_inicio) return true;
+    const promoInicioMin = parseInt(p.hora_inicio.split(':')[0]) * 60 + parseInt(p.hora_inicio.split(':')[1]);
+    return (h * 60 + m) >= promoInicioMin;
+  });
+  
+  if (promo) descuento = promo.descuento;
+  
+  const precioFinal = Math.round(precioBase * (1 - descuento / 100));
+  
+  return { precioBase, precioFinal, descuento };
+}
+
+// SELECCIONAR DURACION
 function seleccionarDuracion(duracion, precioFinal, descuento, precioBase, horaFin) {
   state.selectedDuration = duracion;
   cerrarModalDuracion();
   
-  const duracionTexto = duracion === 1 ? '1 hora' : duracion === 1.5 ? '1.5 horas' : '2 horas';
+  const duracionTexto = duracion === 1 ? '1 hora' : duracion === 1.5 ? '1h 30min' : '2 horas';
   
   document.getElementById('confirmacionDetalle').innerHTML = `
-    <p class="text-lg"><strong>Cancha:</strong> ${state.selectedCourt}</p>
-    <p class="text-lg"><strong>Fecha:</strong> ${formatearFecha(state.selectedDate)}</p>
-    <p class="text-lg"><strong>Hora:</strong> ${convertirA12h(state.selectedTime)} - ${convertirA12h(horaFin)}</p>
-    <p class="text-lg"><strong>Duracion:</strong> ${duracionTexto}</p>
-    ${descuento > 0 ? `
-      <p class="text-lg text-purple-600 font-bold"><strong>Descuento:</strong> ${descuento}%</p>
-      <p class="text-lg text-gray-500 line-through">Precio: $${Math.round(precioBase)} MXN</p>
-    ` : ''}
-    <p class="text-2xl font-bold text-primary mt-2">Total: $${precioFinal} MXN</p>
+    <div class="space-y-3">
+      <div class="flex justify-between">
+        <span class="text-gray-700">Cancha</span>
+        <span class="font-bold">Cancha ${state.selectedCourt}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-700">Fecha</span>
+        <span class="font-bold">${formatearFecha(state.selectedDate)}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-700">Horario</span>
+        <span class="font-bold">${convertirA12h(state.selectedTime)} - ${convertirA12h(horaFin)}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-700">Duracion</span>
+        <span class="font-bold">${duracionTexto}</span>
+      </div>
+      ${descuento > 0 ? `
+        <div class="flex justify-between bg-yellow-50 p-3 rounded-lg">
+          <span class="text-yellow-800 font-bold">Descuento</span>
+          <span class="text-yellow-800 font-bold">${descuento}% OFF</span>
+        </div>
+        <div class="flex justify-between text-sm text-gray-500">
+          <span>Precio original</span>
+          <span class="line-through">$${Math.round(precioBase)}</span>
+        </div>
+      ` : ''}
+      <div class="border-t pt-3">
+        <div class="flex justify-between text-2xl font-bold text-green-600">
+          <span>Total</span>
+          <span>$${precioFinal}</span>
+        </div>
+      </div>
+    </div>
   `;
   
   document.getElementById('confirmacionModal').classList.remove('hidden');
@@ -485,34 +546,26 @@ function cerrarModalDuracion() {
   document.getElementById('duracionModal').classList.add('hidden');
 }
 
-// CONFIRMAR RESERVA (con validación de servidor)
+// CONFIRMAR RESERVA
 async function confirmarReserva() {
-  // Revalidar con el servidor antes de confirmar
   await cargarHoraServidor();
   
   const [h, m] = state.selectedTime.split(':').map(Number);
   const horaReserva = h + (m / 60);
-  const horaActualServidor = state.serverTime.hora + (state.serverTime.minutos / 60);
+  const horaActual = state.serverTime.hora + (state.serverTime.minutos / 60);
   
-  // Verificar si la hora ya pasó
-  if (state.selectedDate === state.serverTime.fecha && horaReserva <= horaActualServidor) {
-    alert('Esta hora ya paso. Por favor selecciona otro horario.');
-    cerrarModal();
-    cargarDisponibilidad();
-    return;
-  }
-  
-  // Verificar si la fecha es pasada
-  if (state.selectedDate < state.serverTime.fecha) {
-    alert('Esta fecha ya paso. Por favor selecciona otra fecha.');
-    cerrarModal();
+  if (state.selectedDate === state.serverTime.fecha && horaReserva <= horaActual) {
+    alert('Esta hora ya paso');
     return;
   }
   
   try {
     const res = await fetch(API_BASE + '/api/reservas/crear', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-token': state.token 
+      },
       body: JSON.stringify({
         token: state.token,
         fecha: state.selectedDate,
@@ -525,7 +578,7 @@ async function confirmarReserva() {
     const data = await res.json();
 
     if (data.ok) {
-      alert('Reserva creada exitosamente');
+      alert('Reserva confirmada exitosamente');
       cerrarModal();
       cargarDisponibilidad();
     } else {
@@ -536,90 +589,27 @@ async function confirmarReserva() {
   }
 }
 
-// FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YYYY)
+// COMPARTIR POR WHATSAPP
+function compartirPorWhatsApp(reserva) {
+  const mensaje = `Distrito Padel - Mi Reserva\n\n` +
+    `Fecha: ${formatearFecha(reserva.fecha)}\n` +
+    `Hora: ${convertirA12h(reserva.hora_inicio)} - ${convertirA12h(calcularHoraFin(reserva.hora_inicio, reserva.duracion))}\n` +
+    `Cancha: ${reserva.cancha}\n` +
+    `Precio: $${reserva.precio}\n\n` +
+    `Nos vemos en la cancha`;
+  
+  const mensajeCodificado = encodeURIComponent(mensaje);
+  const urlWhatsApp = `https://api.whatsapp.com/send?text=${mensajeCodificado}`;
+  
+  window.open(urlWhatsApp, '_blank');
+}
+
+// UTILIDADES
 function formatearFecha(fechaStr) {
   const [year, month, day] = fechaStr.split('-');
   return `${day}/${month}/${year}`;
 }
 
-// VER MIS RESERVAS (con formato mejorado)
-async function verMisReservas() {
-  try {
-    const res = await fetch(API_BASE + '/api/mis-reservas', {
-      headers: { 'x-token': state.token }
-    });
-
-    const reservas = await res.json();
-    const container = document.getElementById('misReservasList');
-    container.innerHTML = '';
-
-    if (reservas.length === 0) {
-      container.innerHTML = '<p class="text-center text-gray-500 py-8">No tienes reservas activas</p>';
-    } else {
-      reservas.forEach(r => {
-        const div = document.createElement('div');
-        div.className = 'bg-primary-lighter rounded-xl p-6 mb-4 border-2 border-primary';
-        
-        // Formatear fecha
-        const fechaFormateada = r.fecha.includes('T') ? 
-          formatearFecha(r.fecha.split('T')[0]) : 
-          formatearFecha(r.fecha);
-        
-        // Calcular hora fin
-        const horaFin = calcularHoraFin(r.hora_inicio, r.duracion);
-        
-        div.innerHTML = `
-          <div class="flex justify-between items-start mb-3">
-            <div>
-              <p class="text-xl font-bold text-primary">Cancha ${r.cancha}</p>
-              <p class="text-sm text-gray-600 mt-1">${fechaFormateada}</p>
-              <p class="text-sm text-gray-600">${convertirA12h(r.hora_inicio)} - ${convertirA12h(horaFin)} (${r.duracion}h)</p>
-            </div>
-            <button onclick="cancelarReserva('${r.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-              Cancelar
-            </button>
-          </div>
-          <div class="bg-white rounded-lg p-4">
-            <p class="text-2xl font-bold text-primary">$${r.precio} MXN</p>
-            <p class="text-sm mt-2 ${r.pagado ? 'text-green-600' : 'text-yellow-600'} font-bold">
-              ${r.pagado ? 'Pagado' : 'Pendiente de pago'}
-            </p>
-          </div>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    document.getElementById('misReservasModal').classList.remove('hidden');
-  } catch (err) {
-    alert('Error al cargar reservas');
-  }
-}
-
-// CANCELAR RESERVA
-async function cancelarReserva(id) {
-  if (!confirm('Seguro que deseas cancelar esta reserva?')) return;
-
-  try {
-    const res = await fetch(API_BASE + '/api/reservas/' + id, {
-      method: 'DELETE',
-      headers: { 'x-token': state.token }
-    });
-
-    const data = await res.json();
-
-    if (data.ok) {
-      alert('Reserva cancelada');
-      verMisReservas();
-    } else {
-      alert('Error al cancelar');
-    }
-  } catch (err) {
-    alert('Error de conexion');
-  }
-}
-
-// UTILIDADES
 function convertirA12h(hora24) {
   const [h, m] = hora24.split(':');
   const hora = parseInt(h);
@@ -636,9 +626,75 @@ function cerrarMisReservas() {
   document.getElementById('misReservasModal').classList.add('hidden');
 }
 
-// EVENT LISTENERS
-document.getElementById('fechaReserva')?.addEventListener('change', () => {
-  if (state.selectedCourt) {
-    cargarDisponibilidad();
+// MIS RESERVAS
+async function verMisReservas() {
+  try {
+    const res = await fetch(API_BASE + '/api/mis-reservas', {
+      headers: { 'x-token': state.token }
+    });
+
+    const reservas = await res.json();
+    const container = document.getElementById('misReservasList');
+    container.innerHTML = '';
+
+    if (reservas.length === 0) {
+      container.innerHTML = '<p class="text-center text-gray-500 py-8">No tienes reservas activas</p>';
+    } else {
+      reservas.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'bg-white rounded-xl p-6 mb-4 border shadow-sm';
+        const horaFin = calcularHoraFin(r.hora_inicio, r.duracion);
+        
+        div.innerHTML = `
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <p class="text-2xl font-bold text-green-600">Cancha ${r.cancha}</p>
+              <p class="text-sm text-gray-600">${formatearFecha(r.fecha)}</p>
+              <p class="text-lg font-semibold">${convertirA12h(r.hora_inicio)} - ${convertirA12h(horaFin)}</p>
+            </div>
+            ${!r.pagado ? `<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-bold">Pendiente</span>` : ''}
+          </div>
+          <div class="flex justify-between items-center pt-4 border-t gap-3">
+            <p class="text-2xl font-bold">$${r.precio}</p>
+            <div class="flex gap-2">
+              <button onclick="compartirPorWhatsApp({fecha: '${r.fecha}', hora_inicio: '${r.hora_inicio}', duracion: ${r.duracion}, cancha: ${r.cancha}, precio: ${r.precio}})" 
+                class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
+                WhatsApp
+              </button>
+              <button onclick="cancelarReserva('${r.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById('misReservasModal').classList.remove('hidden');
+  } catch (err) {
+    alert('Error al cargar reservas');
   }
-});
+}
+
+async function cancelarReserva(id) {
+  if (!confirm('Cancelar esta reserva?')) return;
+
+  try {
+    const res = await fetch(API_BASE + `/api/reservas/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-token': state.token }
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      alert('Reserva cancelada');
+      verMisReservas();
+    } else {
+      alert('Error al cancelar');
+    }
+  } catch (err) {
+    alert('Error de conexion');
+  }
+}
