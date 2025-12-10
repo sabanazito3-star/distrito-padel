@@ -19,7 +19,7 @@
     .border-primary { border-color: var(--primary-green); }
     .border-primary-light { border-color: var(--primary-green-light); }
     
-    /* Imagen de fondo para login */
+    /* Preload de imagen de fondo */
     .bg-login {
       background-image: url('fondo-login.jpg');
       background-size: cover;
@@ -27,13 +27,18 @@
       background-repeat: no-repeat;
     }
     
-    /* Imagen de fondo para dashboard (opcional) */
     .bg-dashboard {
       background-image: url('fondo-dashboard.jpg');
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
       background-attachment: fixed;
+    }
+    
+    /* Optimización de carga de imágenes */
+    img {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
     }
     
     .tab-btn.active { 
@@ -57,18 +62,22 @@
       background: linear-gradient(to right, #1e3621, #26422b);
     }
   </style>
+  
+  <!-- Preload de imágenes críticas -->
+  <link rel="preload" as="image" href="logo.png">
+  <link rel="preload" as="image" href="fondo-login.jpg">
 </head>
 <body class="bg-gray-50">
 
   <!-- AUTH SECTION CON FONDO -->
-  <div id="authSection" class="min-h-screen flex items-center justify-center px-4 py-12 bg-login">
+  <div id="authSection" class="min-h-screen flex items-center justify-center px-4 py-12 bg-login relative">
     <!-- Overlay oscuro opcional para mejor legibilidad -->
     <div class="absolute inset-0 bg-black opacity-40"></div>
     
     <div class="max-w-md w-full relative z-10">
-      <!-- Logo MAS GRANDE -->
+      <!-- Logo MAS GRANDE Y CENTRADO -->
       <div class="text-center mb-8">
-        <img src="logo.png" alt="Distrito Padel" class="w-full max-w-2xl mx-auto mb-4 object-contain">
+        <img src="logo.png" alt="Distrito Padel" class="w-full max-w-lg mx-auto mb-4 object-contain" loading="eager">
         <p class="text-white text-xl font-bold drop-shadow-lg">Reserva tu cancha facilmente</p>
       </div>
 
@@ -138,22 +147,22 @@
 
   <!-- DASHBOARD SECTION -->
   <div id="dashboardSection" class="hidden min-h-screen">
-    <!-- Header CON LOGO MAS GRANDE -->
-    <header class="bg-primary text-white py-4 shadow-lg">
+    <!-- Header CON LOGO CENTRADO -->
+    <header class="bg-primary text-white py-3 shadow-lg">
       <div class="container mx-auto px-4 flex items-center justify-between">
-        <div class="flex items-center">
-          <!-- Logo triple de grande -->
-          <img src="logo.png" alt="Distrito Padel" class="h-24 object-contain">
+        <div class="flex items-center justify-center flex-1">
+          <!-- Logo centrado en el header -->
+          <img src="logo.png" alt="Distrito Padel" class="h-20 object-contain" loading="lazy">
         </div>
-        <div id="userInfo" class="text-right">
-          <p class="font-bold text-lg" id="userNombre"></p>
-          <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">Cerrar sesion</button>
+        <div id="userInfo" class="text-right absolute right-4">
+          <p class="font-bold text-sm" id="userNombre"></p>
+          <button onclick="logout()" class="text-xs opacity-80 hover:opacity-100">Cerrar sesion</button>
         </div>
       </div>
     </header>
 
-    <!-- Contenido con fondo opcional -->
-    <div class="container mx-auto px-4 py-8 bg-dashboard">
+    <!-- Contenido -->
+    <div class="container mx-auto px-4 py-8">
       <!-- Botones -->
       <div class="flex gap-4 mb-6">
         <button onclick="verMisReservas()" 
