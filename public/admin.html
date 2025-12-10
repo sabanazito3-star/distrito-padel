@@ -6,54 +6,23 @@
     <title>Admin - Distrito Padel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary-green: #26422b;
-            --primary-green-light: #3a5f40;
-            --primary-green-lighter: #d4e6d6;
-        }
-        
-        .bg-primary { background-color: var(--primary-green); }
-        .bg-primary-light { background-color: var(--primary-green-light); }
-        .bg-primary-lighter { background-color: var(--primary-green-lighter); }
-        .text-primary { color: var(--primary-green); }
-        .border-primary { border-color: var(--primary-green); }
-        
-        .tab-button { 
-            transition: all 0.3s; 
-            background: white;
-            color: #6b7280;
-        }
-        .tab-button.active { 
-            background: linear-gradient(to right, #26422b, #1e3621); 
-            color: white; 
-        }
-        .tab-button:hover:not(.active) {
-            background: #f3f4f6;
-        }
-        .vista-btn {
-            transition: all 0.3s;
-            background: white;
-            color: #6b7280;
-        }
-        .vista-btn.active {
-            background: var(--primary-green);
-            color: white;
-        }
+        .tab-button { transition: all 0.3s; }
+        .tab-button.active { background: linear-gradient(to right, #10b981, #059669); color: white; }
     </style>
 </head>
 <body class="bg-gray-50">
     <div class="min-h-screen">
         <!-- Header -->
-        <header class="bg-primary text-white py-6 shadow-lg">
+        <header class="bg-gradient-to-r from-green-600 to-green-700 text-white py-6 shadow-lg">
             <div class="container mx-auto px-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <img src="logo2.png" alt="Distrito Padel" class="h-16 object-contain">
+                    <img src="logo.jpg" alt="Distrito Padel" class="w-16 h-16 rounded-xl">
                     <div>
-                        <h1 class="text-3xl font-bold">Panel Administrativo</h1>
-                        <p class="text-sm opacity-80">Distrito Padel v8.1 - Completo</p>
+                        <h1 class="text-3xl font-bold">Panel Admin</h1>
+                        <p class="text-sm text-green-100">Distrito Padel v7.5</p>
                     </div>
                 </div>
-                <div id="lastUpdate" class="text-sm opacity-80"></div>
+                <div id="lastUpdate" class="text-sm text-green-100"></div>
             </div>
         </header>
 
@@ -62,9 +31,9 @@
             <div class="bg-white rounded-xl shadow-md p-6 mb-6">
                 <div class="flex gap-4 items-center">
                     <input type="password" id="adminToken" placeholder="Token de administrador" 
-                           class="flex-1 px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
+                           class="flex-1 px-4 py-3 border-2 rounded-xl focus:border-green-500 focus:outline-none">
                     <button onclick="loadAllData()" 
-                            class="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary-light">
+                            class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg">
                         Conectar
                     </button>
                 </div>
@@ -72,8 +41,8 @@
 
             <!-- Stats -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <!-- Reservas Activas -->
-                <div class="bg-gradient-to-r from-green-500 to-green-700 rounded-2xl p-6 text-white shadow-lg">
+                <!-- Reservas Activas (solo futuras/hoy) -->
+                <div class="bg-gradient-to-r from-green-400 to-green-600 rounded-2xl p-6 text-white shadow-lg">
                     <div>
                         <p class="text-sm opacity-90">Reservas Activas</p>
                         <p class="text-xs opacity-75">(Hoy y Futuras)</p>
@@ -82,7 +51,7 @@
                 </div>
 
                 <!-- Total Recaudado con Filtros -->
-                <div class="bg-gradient-to-r from-blue-500 to-blue-700 rounded-2xl p-6 text-white shadow-lg">
+                <div class="bg-gradient-to-r from-blue-400 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
                     <div class="mb-2">
                         <p class="text-sm opacity-90">Total Recaudado</p>
                         <p id="statRecaudado" class="text-4xl font-bold mt-2">$0</p>
@@ -93,7 +62,7 @@
                     <div class="mt-4 space-y-2">
                         <select id="filtroTotalTipo" onchange="cambiarFiltroTotal()" class="w-full px-3 py-2 rounded-lg text-gray-800 text-sm">
                             <option value="todo">Todo el tiempo</option>
-                            <option value="fecha">Fecha especifica</option>
+                            <option value="fecha">Fecha específica</option>
                             <option value="rango">Rango de fechas</option>
                         </select>
                         
@@ -117,7 +86,7 @@
                 </div>
 
                 <!-- Pendientes de Pago -->
-                <div class="bg-gradient-to-r from-yellow-500 to-yellow-700 rounded-2xl p-6 text-white shadow-lg">
+                <div class="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-2xl p-6 text-white shadow-lg">
                     <div>
                         <p class="text-sm opacity-90">Pendientes de Pago</p>
                         <p class="text-xs opacity-75">(Solo activas)</p>
@@ -126,65 +95,48 @@
                 </div>
             </div>
 
-            <!-- Tabs -->
-            <div class="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-md overflow-x-auto">
-                <button id="tabDashboard" onclick="showTab('dashboard')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold active whitespace-nowrap text-sm">
-                    Dashboard
-                </button>
-                <button id="tabReservas" onclick="showTab('reservas')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Reservas
-                </button>
-                <button id="tabUsuarios" onclick="showTab('usuarios')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Usuarios
-                </button>
-                <button id="tabFinanciero" onclick="showTab('financiero')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Financiero
-                </button>
-                <button id="tabCanchas" onclick="showTab('canchas')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Canchas
-                </button>
-                <button id="tabCalendario" onclick="showTab('calendario')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Calendario
-                </button>
-                <button id="tabPromociones" onclick="showTab('promociones')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Promociones
-                </button>
-                <button id="tabBloqueos" onclick="showTab('bloqueos')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Bloqueos
-                </button>
-                <button id="tabConfig" onclick="showTab('config')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Configuracion
-                </button>
-                <button id="tabReportes" onclick="showTab('reportes')" 
-                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
-                    Reportes
-                </button>
-            </div>
-
-            <!-- CONTENIDO DASHBOARD -->
-            <div id="contentDashboard" class="space-y-6">
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <h2 class="text-2xl font-bold mb-6 text-primary">Estadisticas Generales</h2>
-                    <div id="estadisticasAvanzadas"></div>
+            <!-- BOTONES DE REPORTES -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 mb-6">
+                <h3 class="text-xl font-bold mb-4 text-gray-800">Reportes de Cierre</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="descargarReporteDia()" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 hover:shadow-lg">
+                        Descargar Cierre de Día
+                    </button>
+                    <button onclick="descargarReporteMes()" 
+                            class="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 hover:shadow-lg">
+                        Descargar Cierre Mensual
+                    </button>
                 </div>
             </div>
 
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-md overflow-x-auto">
+                <button id="tabReservas" onclick="showTab('reservas')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold active whitespace-nowrap">
+                    Reservas
+                </button>
+                <button id="tabPromociones" onclick="showTab('promociones')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Promociones
+                </button>
+                <button id="tabBloqueos" onclick="showTab('bloqueos')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Bloqueos
+                </button>
+                <button id="tabConfig" onclick="showTab('config')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Configuración
+                </button>
+            </div>
+
             <!-- CONTENIDO RESERVAS -->
-            <div id="contentReservas" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-primary">Gestion de Reservas</h2>
+            <div id="contentReservas" class="bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-6 text-green-600">Gestión de Reservas</h2>
 
                 <!-- Formulario Crear Reserva Manual -->
                 <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual</h3>
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual (Teléfono/WhatsApp)</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha *</label>
@@ -195,7 +147,7 @@
                             <input type="time" id="manualHora" class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-2">Duracion *</label>
+                            <label class="block text-sm font-bold mb-2">Duración *</label>
                             <select id="manualDuracion" class="w-full px-4 py-2 border-2 rounded-lg">
                                 <option value="1">1 hora</option>
                                 <option value="1.5">1.5 horas</option>
@@ -212,11 +164,11 @@
                         </div>
                         <div>
                             <label class="block text-sm font-bold mb-2">Nombre Cliente *</label>
-                            <input type="text" id="manualNombre" placeholder="Ej: Juan Perez" 
+                            <input type="text" id="manualNombre" placeholder="Ej: Juan Pérez" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-2">Telefono *</label>
+                            <label class="block text-sm font-bold mb-2">Teléfono *</label>
                             <input type="tel" id="manualTelefono" placeholder="5551234567" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
@@ -236,15 +188,14 @@
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="bg-primary-lighter text-left">
-                                <th class="px-4 py-3 font-bold text-primary">Hora</th>
-                                <th class="px-4 py-3 font-bold text-primary">Dur.</th>
-                                <th class="px-4 py-3 font-bold text-center text-primary">Cancha</th>
-                                <th class="px-4 py-3 font-bold text-primary">Cliente</th>
-                                <th class="px-4 py-3 font-bold text-primary">Precio</th>
-                                <th class="px-4 py-3 font-bold text-primary">Estado</th>
-                                <th class="px-4 py-3 font-bold text-primary">Notas</th>
-                                <th class="px-4 py-3 font-bold text-primary">Acciones</th>
+                            <tr class="bg-green-100 text-left">
+                                <th class="px-4 py-3 font-bold">Hora</th>
+                                <th class="px-4 py-3 font-bold">Dur.</th>
+                                <th class="px-4 py-3 font-bold text-center">Cancha</th>
+                                <th class="px-4 py-3 font-bold">Cliente</th>
+                                <th class="px-4 py-3 font-bold">Precio</th>
+                                <th class="px-4 py-3 font-bold">Estado</th>
+                                <th class="px-4 py-3 font-bold">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="reservasTable"></tbody>
@@ -252,126 +203,12 @@
                 </div>
             </div>
 
-            <!-- CONTENIDO USUARIOS -->
-            <div id="contentUsuarios" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-primary">Gestion de Usuarios</h2>
-                    <button onclick="exportarUsuarios()" 
-                            class="px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-light">
-                        Exportar a CSV
-                    </button>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-primary-lighter text-left">
-                                <th class="px-4 py-3 font-bold text-primary">Nombre</th>
-                                <th class="px-4 py-3 font-bold text-primary">Email</th>
-                                <th class="px-4 py-3 font-bold text-primary">Telefono</th>
-                                <th class="px-4 py-3 font-bold text-primary text-center">Reservas</th>
-                                <th class="px-4 py-3 font-bold text-primary text-center">Total Gastado</th>
-                                <th class="px-4 py-3 font-bold text-primary text-center">Estado</th>
-                                <th class="px-4 py-3 font-bold text-primary text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="usuariosTable"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- CONTENIDO FINANCIERO -->
-            <div id="contentFinanciero" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-primary">Gestion Financiera</h2>
-
-                <!-- Filtros -->
-                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Estado</label>
-                            <select id="filtroFinancieroEstado" onchange="renderGestionFinanciera()" class="w-full px-4 py-2 border-2 rounded-lg">
-                                <option value="todos">Todos</option>
-                                <option value="pagadas">Pagadas</option>
-                                <option value="pendientes">Pendientes</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Cancha</label>
-                            <select id="filtroFinancieroCancha" onchange="renderGestionFinanciera()" class="w-full px-4 py-2 border-2 rounded-lg">
-                                <option value="todas">Todas</option>
-                                <option value="1">Cancha 1</option>
-                                <option value="2">Cancha 2</option>
-                                <option value="3">Cancha 3</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Buscar Cliente</label>
-                            <input type="text" id="filtroFinancieroCliente" placeholder="Nombre o email" onkeyup="renderGestionFinanciera()"
-                                   class="w-full px-4 py-2 border-2 rounded-lg">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Totales -->
-                <div id="financieroTotales" class="mb-6"></div>
-
-                <!-- Tabla -->
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-primary-lighter text-left">
-                                <th class="px-4 py-3 font-bold text-primary">Fecha</th>
-                                <th class="px-4 py-3 font-bold text-primary">Hora</th>
-                                <th class="px-4 py-3 font-bold text-primary text-center">Cancha</th>
-                                <th class="px-4 py-3 font-bold text-primary">Cliente</th>
-                                <th class="px-4 py-3 font-bold text-primary">Precio</th>
-                                <th class="px-4 py-3 font-bold text-primary">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="financieroTable"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- CONTENIDO CANCHAS -->
-            <div id="contentCanchas" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-primary">Gestion de Canchas</h2>
-                <div id="gestionCanchasContainer"></div>
-            </div>
-
-            <!-- CONTENIDO CALENDARIO -->
-            <div id="contentCalendario" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-                    <h2 class="text-2xl font-bold text-primary">Calendario Avanzado</h2>
-                    
-                    <div class="flex gap-2">
-                        <button id="vistaDia" onclick="cambiarVistaCalendario('dia')" 
-                                class="vista-btn px-4 py-2 rounded-lg font-bold active">
-                            Dia
-                        </button>
-                        <button id="vistaSemana" onclick="cambiarVistaCalendario('semana')" 
-                                class="vista-btn px-4 py-2 rounded-lg font-bold">
-                            Semana
-                        </button>
-                        <button id="vistaMes" onclick="cambiarVistaCalendario('mes')" 
-                                class="vista-btn px-4 py-2 rounded-lg font-bold">
-                            Mes
-                        </button>
-                    </div>
-
-                    <input type="date" id="calendarioFecha" onchange="cambiarFechaCalendario()" 
-                           class="px-4 py-2 border-2 rounded-lg focus:border-primary focus:outline-none">
-                </div>
-
-                <div id="calendarioContainer"></div>
-            </div>
-
             <!-- CONTENIDO PROMOCIONES -->
             <div id="contentPromociones" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-purple-600">Gestion de Promociones</h2>
+                <h2 class="text-2xl font-bold mb-6 text-purple-600">Gestión de Promociones</h2>
 
                 <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-purple-700">Crear Nueva Promocion</h3>
+                    <h3 class="text-xl font-bold mb-4 text-purple-700">Crear Nueva Promoción</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha (opcional)</label>
@@ -390,22 +227,16 @@
                             <label class="block text-sm font-bold mb-2">Hora Fin (opcional)</label>
                             <input type="time" id="promoHoraFin" class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-bold mb-2">Codigo (opcional)</label>
-                            <input type="text" id="promoCodigo" placeholder="Ej: VERANO2025" 
-                                   class="w-full px-4 py-2 border-2 rounded-lg">
-                        </div>
                     </div>
                     <p class="text-sm text-gray-600 mb-4">
                         <strong>Ejemplos:</strong><br>
-                        Sin fecha + Sin horas = Promocion permanente<br>
-                        Con fecha + Sin horas = Promocion ese dia completo<br>
-                        Con fecha + Con horas = Promocion en rango horario<br>
-                        Con codigo = Promocion por codigo descuento
+                        • Sin fecha + Sin horas = Promoción permanente<br>
+                        • Con fecha + Sin horas = Promoción ese día completo<br>
+                        • Con fecha + Con horas = Promoción en rango horario
                     </p>
                     <button onclick="crearPromocion()" 
                             class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700">
-                        Crear Promocion
+                        Crear Promoción
                     </button>
                 </div>
 
@@ -414,11 +245,10 @@
 
             <!-- CONTENIDO BLOQUEOS -->
             <div id="contentBloqueos" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-red-600">Gestion de Bloqueos</h2>
+                <h2 class="text-2xl font-bold mb-6 text-red-600">Gestión de Bloqueos</h2>
 
-                <!-- Bloqueo Simple -->
                 <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-red-700">Crear Bloqueo Simple</h3>
+                    <h3 class="text-xl font-bold mb-4 text-red-700">Crear Nuevo Bloqueo</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha *</label>
@@ -453,51 +283,18 @@
                     </button>
                 </div>
 
-                <!-- Bloqueo Masivo -->
-                <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-orange-700">Crear Bloqueo Masivo</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Fecha Inicio *</label>
-                            <input type="date" id="bloqueoMasivoInicio" class="w-full px-4 py-2 border-2 rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Fecha Fin *</label>
-                            <input type="date" id="bloqueoMasivoFin" class="w-full px-4 py-2 border-2 rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Cancha (opcional)</label>
-                            <select id="bloqueoMasivoCancha" class="w-full px-4 py-2 border-2 rounded-lg">
-                                <option value="">Todas las canchas</option>
-                                <option value="1">Cancha 1</option>
-                                <option value="2">Cancha 2</option>
-                                <option value="3">Cancha 3</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2">Motivo</label>
-                            <input type="text" id="bloqueoMasivoMotivo" placeholder="Ej: Temporada baja" 
-                                   class="w-full px-4 py-2 border-2 rounded-lg">
-                        </div>
-                    </div>
-                    <button onclick="crearBloqueoMasivo()" 
-                            class="w-full px-6 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700">
-                        Crear Bloqueo Masivo
-                    </button>
-                </div>
-
                 <div id="bloqueosLista"></div>
             </div>
 
             <!-- CONTENIDO CONFIGURACIÓN -->
             <div id="contentConfig" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-primary">Configuracion del Sistema</h2>
+                <h2 class="text-2xl font-bold mb-6 text-gray-600">Configuración de Precios</h2>
 
-                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-orange-700">Gestion de Tarifas</h3>
+                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                    <h3 class="text-xl font-bold mb-4 text-orange-700">Gestión de Tarifas</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label class="block text-sm font-bold mb-2">Precio Hora Dia ($)</label>
+                            <label class="block text-sm font-bold mb-2">Precio Hora Día ($)</label>
                             <input type="number" id="configPrecioDia" min="0" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
@@ -518,12 +315,12 @@
                     </button>
                 </div>
 
-                <div id="configActual" class="bg-gray-50 rounded-xl p-6">
-                    <h3 class="font-bold text-gray-700 mb-3">Configuracion Actual</h3>
+                <div id="configActual" class="mt-6 bg-gray-50 rounded-xl p-6">
+                    <h3 class="font-bold text-gray-700 mb-3">Configuración Actual</h3>
                     <div class="grid grid-cols-3 gap-4 text-sm">
                         <div class="bg-white rounded-lg p-3 border">
-                            <p class="text-gray-600">Precio Dia</p>
-                            <p class="text-2xl font-bold text-primary" id="displayPrecioDia">$250</p>
+                            <p class="text-gray-600">Precio Día</p>
+                            <p class="text-2xl font-bold text-green-600" id="displayPrecioDia">$250</p>
                         </div>
                         <div class="bg-white rounded-lg p-3 border">
                             <p class="text-gray-600">Precio Noche</p>
@@ -532,40 +329,6 @@
                         <div class="bg-white rounded-lg p-3 border">
                             <p class="text-gray-600">Cambio</p>
                             <p class="text-2xl font-bold text-orange-600" id="displayCambio">16:00</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CONTENIDO REPORTES -->
-            <div id="contentReportes" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-primary">Reportes y Exportaciones</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-                        <h3 class="text-xl font-bold mb-4 text-blue-700">Reportes de Cierre</h3>
-                        <div class="space-y-3">
-                            <button onclick="descargarReporteDia()" 
-                                    class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">
-                                Descargar Cierre de Dia
-                            </button>
-                            <button onclick="descargarReporteMes()" 
-                                    class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700">
-                                Descargar Cierre Mensual
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="bg-primary-lighter border-2 border-primary rounded-xl p-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary">Exportaciones</h3>
-                        <div class="space-y-3">
-                            <button onclick="exportarUsuarios()" 
-                                    class="w-full px-6 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-light">
-                                Exportar Usuarios (CSV)
-                            </button>
-                            <p class="text-sm text-gray-600 mt-2">
-                                Exporta la lista completa de usuarios con sus estadisticas de reservas y gastos totales.
-                            </p>
                         </div>
                     </div>
                 </div>
