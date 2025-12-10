@@ -1,4 +1,4 @@
-// admin-app.js - Panel Admin Avanzado v8.0 - Profesional
+// admin-app.js - Panel Admin Avanzado v8.1 - COMPLETO
 const API_BASE = '';
 
 let state = {
@@ -6,7 +6,13 @@ let state = {
   promociones: [],
   bloqueos: [],
   usuarios: [],
-  config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } },
+  config: { 
+    precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 },
+    horarios: { apertura: 8, cierre: 24 },
+    duraciones: [1, 1.5, 2],
+    anticipacionMinima: 0,
+    canchasActivas: { 1: true, 2: true, 3: true }
+  },
   token: localStorage.getItem('admin_token') || '',
   currentTab: 'dashboard',
   autoUpdateInterval: null,
@@ -15,8 +21,7 @@ let state = {
   filtroTotalTipo: 'todo',
   filtroFechaInicio: '',
   filtroFechaFin: '',
-  chartOcupacion: null,
-  chartIngresos: null
+  vistaCalendario: 'dia'
 };
 
 window.onload = () => {
@@ -26,7 +31,7 @@ window.onload = () => {
     startAutoUpdate();
   }
   cargarConfigActual();
-  initCharts();
+  initDatepicker();
 };
 
 async function api(path, opts = {}) {
@@ -66,9 +71,11 @@ async function loadAllData() {
     renderBloqueos();
     renderUsuarios();
     renderEstadisticasAvanzadas();
+    renderCalendario();
+    renderGestionFinanciera();
+    renderGestionCanchas();
     updateStats();
     updateLastUpdate();
-    updateCharts();
 
     if (!state.autoUpdateInterval) {
       startAutoUpdate();
@@ -89,8 +96,9 @@ function startAutoUpdate() {
       if (JSON.stringify(reservas) !== JSON.stringify(state.reservas)) {
         state.reservas = reservas;
         renderReservas();
+        renderCalendario();
+        renderGestionFinanciera();
         updateStats();
-        updateCharts();
         renderEstadisticasAvanzadas();
       }
       updateLastUpdate();
@@ -126,6 +134,9 @@ function showTab(tab) {
   document.getElementById('contentBloqueos').classList.add('hidden');
   document.getElementById('contentConfig').classList.add('hidden');
   document.getElementById('contentReportes').classList.add('hidden');
+  document.getElementById('contentFinanciero').classList.add('hidden');
+  document.getElementById('contentCanchas').classList.add('hidden');
+  document.getElementById('contentCalendario').classList.add('hidden');
 
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.classList.remove('active');
@@ -138,17 +149,27 @@ function showTab(tab) {
     'promociones': 'contentPromociones',
     'bloqueos': 'contentBloqueos',
     'config': 'contentConfig',
-    'reportes': 'contentReportes'
+    'reportes': 'contentReportes',
+    'financiero': 'contentFinanciero',
+    'canchas': 'contentCanchas',
+    'calendario': 'contentCalendario'
   };
 
   const contentId = tabMap[tab];
   if (contentId) {
     document.getElementById(contentId).classList.remove('hidden');
-    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    const tabBtn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (tabBtn) tabBtn.classList.add('active');
   }
 
   if (tab === 'dashboard') {
-    updateCharts();
+    renderEstadisticasAvanzadas();
+  } else if (tab === 'calendario') {
+    renderCalendario();
+  } else if (tab === 'financiero') {
+    renderGestionFinanciera();
+  } else if (tab === 'canchas') {
+    renderGestionCanchas();
   }
 }
 
@@ -170,6 +191,15 @@ function formatearFecha(fechaISO) {
   return `${dia}/${mes}/${año}`;
 }
 
+function obtenerFechaISO(fechaStr) {
+  if (!fechaStr) return null;
+  if (typeof fechaStr === 'string' && fechaStr.includes('T')) {
+    return fechaStr.split('T')[0];
+  }
+  return fechaStr;
+}
+
+// RESERVAS
 function renderReservas() {
   const tbody = document.getElementById('reservasTable');
   tbody.innerHTML = '';
@@ -177,7 +207,7 @@ function renderReservas() {
   if (state.reservas.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="text-center py-12 text-gray-500">
+        <td colspan="8" class="text-center py-12 text-gray-500">
           <p class="text-lg">No hay reservas registradas</p>
         </td>
       </tr>
@@ -190,14 +220,6 @@ function renderReservas() {
 
   const activas = state.reservas.filter(r => r.estado !== 'cancelada');
   const canceladas = state.reservas.filter(r => r.estado === 'cancelada');
-
-  const obtenerFechaISO = (fechaStr) => {
-    if (!fechaStr) return null;
-    if (typeof fechaStr === 'string' && fechaStr.includes('T')) {
-      return fechaStr.split('T')[0];
-    }
-    return fechaStr;
-  };
 
   const futuras = activas.filter(r => {
     const fechaISO = obtenerFechaISO(r.fecha);
@@ -231,8 +253,8 @@ function renderReservas() {
 
   const header = document.createElement('tr');
   header.innerHTML = `
-    <td colspan="7" class="px-4 py-3 bg-blue-50 text-center">
-      <div class="flex justify-center gap-6 items-center">
+    <td colspan="8" class="px-4 py-3 bg-blue-50 text-center">
+      <div class="flex justify-center gap-6 items-center flex-wrap">
         <span class="font-bold text-primary">Activas (Hoy y Futuras): ${futuras.length}</span>
         <span class="font-bold text-gray-700">Pasadas: ${pasadas.length}</span>
         <span class="font-bold text-red-700">Canceladas: ${canceladas.length}</span>
@@ -283,7 +305,7 @@ function renderReservas() {
       const headerDia = document.createElement('tr');
       headerDia.className = `bg-${colorClass}-100 border-t-2 border-${colorClass}-300`;
       headerDia.innerHTML = `
-        <td colspan="7" class="px-4 py-2 font-bold text-${colorClass}-800">
+        <td colspan="8" class="px-4 py-2 font-bold text-${colorClass}-800">
           ${diaSemana.toUpperCase()} ${fechaFormateada}${etiquetaHoy} - ${reservasDelDia.length} reserva(s)
         </td>
       `;
@@ -314,7 +336,10 @@ function renderReservas() {
         const botonesHTML = r.estado === 'cancelada' 
           ? '<span class="text-xs text-gray-500 italic">Cancelada</span>'
           : `
-            <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2 mb-1">
+            <button onclick="editarReserva('${r.id}')" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 mr-2 mb-1">
+              Editar
+            </button>
+            <button onclick="marcarPagada('${r.id}', ${!r.pagado})" class="px-3 py-1 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 mr-2 mb-1">
               ${r.pagado ? 'Marcar Pendiente' : 'Marcar Pagada'}
             </button>
             <button onclick="cancelarReserva('${r.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">
@@ -339,6 +364,11 @@ function renderReservas() {
               ${pagadoText}${metodoPagoTexto}
             </span>
           </td>
+          <td class="px-4 py-3">
+            <button onclick="agregarNota('${r.id}')" class="text-blue-600 hover:underline text-sm">
+              ${r.notas ? 'Ver nota' : 'Agregar nota'}
+            </button>
+          </td>
           <td class="px-4 py-3">${botonesHTML}</td>
         `;
         tbody.appendChild(tr);
@@ -355,6 +385,57 @@ function renderReservas() {
   if (state.mostrarCanceladas) {
     const canceladasAgrupadas = agruparPorFecha(canceladas);
     renderGrupo(canceladasAgrupadas, 'Canceladas', 'red');
+  }
+}
+
+async function editarReserva(id) {
+  const reserva = state.reservas.find(r => r.id === id);
+  if (!reserva) return;
+
+  const nuevaHora = prompt('Nueva hora (HH:MM formato 24h):', reserva.hora_inicio);
+  if (!nuevaHora) return;
+
+  const nuevaDuracion = prompt('Nueva duracion (1, 1.5 o 2):', reserva.duracion);
+  if (!nuevaDuracion) return;
+
+  try {
+    await fetch(API_BASE + `/api/admin/reservas/${id}/editar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ hora: nuevaHora, duracion: parseFloat(nuevaDuracion) })
+    });
+
+    alert('Reserva editada exitosamente');
+    await loadAllData();
+  } catch (err) {
+    alert('Error al editar reserva');
+  }
+}
+
+async function agregarNota(id) {
+  const reserva = state.reservas.find(r => r.id === id);
+  if (!reserva) return;
+
+  const nota = prompt('Nota interna (solo visible para admin):', reserva.notas || '');
+  if (nota === null) return;
+
+  try {
+    await fetch(API_BASE + `/api/admin/reservas/${id}/nota`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ nota })
+    });
+
+    alert('Nota guardada');
+    await loadAllData();
+  } catch (err) {
+    alert('Error al guardar nota');
   }
 }
 
@@ -481,7 +562,7 @@ function renderUsuarios() {
   if (state.usuarios.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="text-center py-12 text-gray-500">
+        <td colspan="7" class="text-center py-12 text-gray-500">
           <p class="text-lg">No hay usuarios registrados</p>
         </td>
       </tr>
@@ -492,9 +573,10 @@ function renderUsuarios() {
   state.usuarios.forEach(u => {
     const reservasUsuario = state.reservas.filter(r => r.email === u.email && r.estado !== 'cancelada');
     const totalGastado = reservasUsuario.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+    const bloqueado = u.bloqueado || false;
     
     const tr = document.createElement('tr');
-    tr.className = 'hover:bg-gray-50 border-b';
+    tr.className = bloqueado ? 'bg-red-50 opacity-60 border-b' : 'hover:bg-gray-50 border-b';
     tr.innerHTML = `
       <td class="px-4 py-3 font-bold text-gray-800">${u.nombre}</td>
       <td class="px-4 py-3 text-gray-600">${u.email}</td>
@@ -502,8 +584,14 @@ function renderUsuarios() {
       <td class="px-4 py-3 text-center font-bold text-blue-600">${reservasUsuario.length}</td>
       <td class="px-4 py-3 text-center font-bold text-primary">$${Math.round(totalGastado)}</td>
       <td class="px-4 py-3 text-center">
-        <button onclick="verDetalleUsuario('${u.email}')" class="px-3 py-1 bg-primary text-white rounded-lg text-sm hover:bg-primary-light">
+        ${bloqueado ? '<span class="px-2 py-1 bg-red-500 text-white rounded text-xs">Bloqueado</span>' : '<span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Activo</span>'}
+      </td>
+      <td class="px-4 py-3 text-center">
+        <button onclick="verDetalleUsuario('${u.email}')" class="px-3 py-1 bg-primary text-white rounded-lg text-sm hover:bg-primary-light mr-2">
           Ver Detalle
+        </button>
+        <button onclick="toggleBloqueoUsuario('${u.email}')" class="px-3 py-1 ${bloqueado ? 'bg-green-500' : 'bg-red-500'} text-white rounded-lg text-sm hover:opacity-80">
+          ${bloqueado ? 'Desbloquear' : 'Bloquear'}
         </button>
       </td>
     `;
@@ -511,13 +599,36 @@ function renderUsuarios() {
   });
 }
 
+async function toggleBloqueoUsuario(email) {
+  const usuario = state.usuarios.find(u => u.email === email);
+  const accion = usuario.bloqueado ? 'desbloquear' : 'bloquear';
+  
+  if (!confirm(`¿${accion.toUpperCase()} a ${usuario.nombre}?`)) return;
+
+  try {
+    await fetch(API_BASE + `/api/admin/usuarios/${email}/bloquear`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ bloqueado: !usuario.bloqueado })
+    });
+
+    alert(`Usuario ${accion}ado exitosamente`);
+    await loadAllData();
+  } catch (err) {
+    alert(`Error al ${accion} usuario`);
+  }
+}
+
 function verDetalleUsuario(email) {
   const usuario = state.usuarios.find(u => u.email === email);
   if (!usuario) return;
 
   const reservasUsuario = state.reservas.filter(r => r.email === email).sort((a, b) => {
-    const fechaA = a.fecha.includes('T') ? a.fecha.split('T')[0] : a.fecha;
-    const fechaB = b.fecha.includes('T') ? b.fecha.split('T')[0] : b.fecha;
+    const fechaA = obtenerFechaISO(a.fecha);
+    const fechaB = obtenerFechaISO(b.fecha);
     return fechaB.localeCompare(fechaA);
   });
 
@@ -556,6 +667,7 @@ function verDetalleUsuario(email) {
         <p class="text-lg"><strong>Telefono:</strong> ${usuario.telefono}</p>
         <p class="text-lg"><strong>Total Reservas:</strong> ${reservasUsuario.length}</p>
         <p class="text-lg"><strong>Total Gastado:</strong> <span class="text-primary font-bold">$${Math.round(totalGastado)}</span></p>
+        <p class="text-lg"><strong>Estado:</strong> ${usuario.bloqueado ? '<span class="text-red-600">Bloqueado</span>' : '<span class="text-green-600">Activo</span>'}</p>
       </div>
 
       <h3 class="font-bold text-lg mb-3 border-b pb-2">Historial de Reservas</h3>
@@ -586,6 +698,7 @@ function renderPromociones() {
     let textoPromo = `${p.descuento}% OFF`;
     if (p.fecha) textoPromo += ` - ${formatearFecha(p.fecha)}`;
     if (p.hora_inicio && p.hora_fin) textoPromo += ` de ${convertirA12h(p.hora_inicio)} a ${convertirA12h(p.hora_fin)}`;
+    if (p.codigo) textoPromo += ` - Codigo: ${p.codigo}`;
     
     div.innerHTML = `
       <div class="flex justify-between items-center">
@@ -593,13 +706,37 @@ function renderPromociones() {
           <p class="font-bold text-purple-700">${textoPromo}</p>
           <p class="text-sm text-gray-600">${p.activa ? 'Activa' : 'Inactiva'}</p>
         </div>
-        <button onclick="eliminarPromocion('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-          Eliminar
-        </button>
+        <div class="flex gap-2">
+          <button onclick="togglePromocion('${p.id}')" class="px-4 py-2 ${p.activa ? 'bg-gray-500' : 'bg-green-500'} text-white rounded-lg hover:opacity-80">
+            ${p.activa ? 'Desactivar' : 'Activar'}
+          </button>
+          <button onclick="eliminarPromocion('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+            Eliminar
+          </button>
+        </div>
       </div>
     `;
     container.appendChild(div);
   });
+}
+
+async function togglePromocion(id) {
+  const promo = state.promociones.find(p => p.id === id);
+  if (!promo) return;
+
+  try {
+    await fetch(API_BASE + `/api/admin/promociones/${id}/toggle`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      }
+    });
+    alert(`Promocion ${promo.activa ? 'desactivada' : 'activada'}`);
+    await loadAllData();
+  } catch (err) {
+    alert('Error al cambiar estado');
+  }
 }
 
 async function crearPromocion() {
@@ -607,6 +744,7 @@ async function crearPromocion() {
   const descuento = parseInt(document.getElementById('promoDescuento').value);
   const horaInicio = document.getElementById('promoHoraInicio').value || null;
   const horaFin = document.getElementById('promoHoraFin').value || null;
+  const codigo = document.getElementById('promoCodigo').value.trim() || null;
 
   if (!descuento || descuento < 1 || descuento > 100) {
     alert('Ingresa un descuento valido entre 1 y 100%');
@@ -620,7 +758,7 @@ async function crearPromocion() {
         'Content-Type': 'application/json',
         'x-admin-token': state.token
       },
-      body: JSON.stringify({ fecha, descuento, horaInicio, horaFin })
+      body: JSON.stringify({ fecha, descuento, horaInicio, horaFin, codigo })
     });
 
     alert('Promocion creada');
@@ -628,6 +766,7 @@ async function crearPromocion() {
     document.getElementById('promoDescuento').value = '';
     document.getElementById('promoHoraInicio').value = '';
     document.getElementById('promoHoraFin').value = '';
+    document.getElementById('promoCodigo').value = '';
     await loadAllData();
   } catch (err) {
     alert('Error al crear promocion');
@@ -716,6 +855,40 @@ async function crearBloqueo() {
     await loadAllData();
   } catch (err) {
     alert('Error al crear bloqueo');
+  }
+}
+
+async function crearBloqueoMasivo() {
+  const fechaInicio = document.getElementById('bloqueoMasivoInicio').value;
+  const fechaFin = document.getElementById('bloqueoMasivoFin').value;
+  const cancha = document.getElementById('bloqueoMasivoCancha').value ? parseInt(document.getElementById('bloqueoMasivoCancha').value) : null;
+  const motivo = document.getElementById('bloqueoMasivoMotivo').value.trim();
+
+  if (!fechaInicio || !fechaFin) {
+    alert('Selecciona rango de fechas');
+    return;
+  }
+
+  if (!confirm(`Crear bloqueo desde ${formatearFecha(fechaInicio)} hasta ${formatearFecha(fechaFin)}?`)) return;
+
+  try {
+    await fetch(API_BASE + '/api/admin/bloqueos/masivo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ fechaInicio, fechaFin, cancha, motivo })
+    });
+
+    alert('Bloqueos masivos creados');
+    document.getElementById('bloqueoMasivoInicio').value = '';
+    document.getElementById('bloqueoMasivoFin').value = '';
+    document.getElementById('bloqueoMasivoCancha').value = '';
+    document.getElementById('bloqueoMasivoMotivo').value = '';
+    await loadAllData();
+  } catch (err) {
+    alert('Error al crear bloqueos masivos');
   }
 }
 
@@ -828,12 +1001,13 @@ async function exportarUsuarios() {
     return;
   }
 
-  let csv = 'Nombre,Email,Telefono,Total Reservas,Total Gastado\n';
+  let csv = 'Nombre,Email,Telefono,Total Reservas,Total Gastado,Estado\n';
   
   state.usuarios.forEach(u => {
     const reservasUsuario = state.reservas.filter(r => r.email === u.email && r.estado !== 'cancelada');
     const totalGastado = reservasUsuario.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
-    csv += `"${u.nombre}","${u.email}","${u.telefono}",${reservasUsuario.length},${Math.round(totalGastado)}\n`;
+    const estado = u.bloqueado ? 'Bloqueado' : 'Activo';
+    csv += `"${u.nombre}","${u.email}","${u.telefono}",${reservasUsuario.length},${Math.round(totalGastado)},"${estado}"\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -872,7 +1046,7 @@ function aplicarFiltroFecha() {
   state.filtroFechaInicio = fecha;
   state.filtroFechaFin = fecha;
   updateStats();
-  updateCharts();
+  renderGestionFinanciera();
 }
 
 function aplicarFiltroRango() {
@@ -892,20 +1066,12 @@ function aplicarFiltroRango() {
   state.filtroFechaInicio = inicio;
   state.filtroFechaFin = fin;
   updateStats();
-  updateCharts();
+  renderGestionFinanciera();
 }
 
 function updateStats() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
-  
-  const obtenerFechaISO = (fechaStr) => {
-    if (!fechaStr) return null;
-    if (typeof fechaStr === 'string' && fechaStr.includes('T')) {
-      return fechaStr.split('T')[0];
-    }
-    return fechaStr;
-  };
   
   const reservasActivas = state.reservas.filter(r => {
     if (r.estado === 'cancelada') return false;
@@ -955,22 +1121,48 @@ function updateStats() {
   }
 }
 
-// ESTADISTICAS AVANZADAS
+// ESTADISTICAS AVANZADAS (Dashboard)
 function renderEstadisticasAvanzadas() {
   const container = document.getElementById('estadisticasAvanzadas');
   if (!container) return;
 
-  const obtenerFechaISO = (fechaStr) => {
-    if (!fechaStr) return null;
-    if (typeof fechaStr === 'string' && fechaStr.includes('T')) {
-      return fechaStr.split('T')[0];
-    }
-    return fechaStr;
-  };
+  // Calcular datos
+  const reservasActivas = state.reservas.filter(r => r.estado !== 'cancelada');
+  
+  // Ingresos por semana/mes
+  const hoy = new Date();
+  const inicioSemana = new Date(hoy);
+  inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+  inicioSemana.setHours(0, 0, 0, 0);
+  
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  
+  const reservasSemana = reservasActivas.filter(r => {
+    const fechaISO = obtenerFechaISO(r.fecha);
+    if (!fechaISO) return false;
+    const fecha = new Date(fechaISO + 'T00:00:00');
+    return fecha >= inicioSemana;
+  });
+  
+  const reservasMes = reservasActivas.filter(r => {
+    const fechaISO = obtenerFechaISO(r.fecha);
+    if (!fechaISO) return false;
+    const fecha = new Date(fechaISO + 'T00:00:00');
+    return fecha >= inicioMes;
+  });
+  
+  const ingresosSemana = reservasSemana.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+  const ingresosMes = reservasMes.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+  
+  // Ingresos por cancha
+  const ingresosPorCancha = { 1: 0, 2: 0, 3: 0 };
+  reservasActivas.forEach(r => {
+    ingresosPorCancha[r.cancha] = (ingresosPorCancha[r.cancha] || 0) + parseFloat(r.precio || 0);
+  });
 
   // Clientes más frecuentes
   const clientesFrecuentes = {};
-  state.reservas.filter(r => r.estado !== 'cancelada').forEach(r => {
+  reservasActivas.forEach(r => {
     const key = `${r.nombre}-${r.email}`;
     if (!clientesFrecuentes[key]) {
       clientesFrecuentes[key] = { nombre: r.nombre, email: r.email, count: 0, total: 0 };
@@ -985,7 +1177,7 @@ function renderEstadisticasAvanzadas() {
 
   // Horarios más populares
   const horariosPopulares = {};
-  state.reservas.filter(r => r.estado !== 'cancelada').forEach(r => {
+  reservasActivas.forEach(r => {
     const hora = r.hora_inicio.split(':')[0];
     horariosPopulares[hora] = (horariosPopulares[hora] || 0) + 1;
   });
@@ -994,20 +1186,79 @@ function renderEstadisticasAvanzadas() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
+  // Días más populares
+  const diasPopulares = {};
+  reservasActivas.forEach(r => {
+    const fechaISO = obtenerFechaISO(r.fecha);
+    if (!fechaISO) return;
+    const fecha = new Date(fechaISO + 'T00:00:00');
+    const dia = fecha.toLocaleDateString('es-MX', { weekday: 'long' });
+    diasPopulares[dia] = (diasPopulares[dia] || 0) + 1;
+  });
+
+  const topDias = Object.entries(diasPopulares)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 7);
+
   // Ocupación por cancha
   const ocupacionCanchas = { 1: 0, 2: 0, 3: 0 };
-  state.reservas.filter(r => r.estado !== 'cancelada').forEach(r => {
+  reservasActivas.forEach(r => {
     ocupacionCanchas[r.cancha] = (ocupacionCanchas[r.cancha] || 0) + 1;
   });
 
   // Promedio de duración
-  const reservasActivas = state.reservas.filter(r => r.estado !== 'cancelada');
   const promedioDuracion = reservasActivas.length > 0 
     ? reservasActivas.reduce((sum, r) => sum + parseFloat(r.duracion || 0), 0) / reservasActivas.length
     : 0;
 
+  // Clientes nuevos vs recurrentes
+  const clientesUnicos = new Set(reservasActivas.map(r => r.email));
+  const clientesRecurrentes = Object.values(clientesFrecuentes).filter(c => c.count > 1).length;
+  const clientesNuevos = clientesUnicos.size - clientesRecurrentes;
+
   let html = `
+    <!-- Ingresos por periodo -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div class="bg-gradient-to-r from-blue-400 to-blue-600 rounded-xl p-6 text-white shadow-lg">
+        <p class="text-sm opacity-90">Ingresos Esta Semana</p>
+        <p class="text-3xl font-bold mt-2">$${Math.round(ingresosSemana).toLocaleString()}</p>
+        <p class="text-xs opacity-75 mt-1">${reservasSemana.length} reservas</p>
+      </div>
+      <div class="bg-gradient-to-r from-purple-400 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+        <p class="text-sm opacity-90">Ingresos Este Mes</p>
+        <p class="text-3xl font-bold mt-2">$${Math.round(ingresosMes).toLocaleString()}</p>
+        <p class="text-xs opacity-75 mt-1">${reservasMes.length} reservas</p>
+      </div>
+      <div class="bg-gradient-to-r from-green-400 to-green-600 rounded-xl p-6 text-white shadow-lg">
+        <p class="text-sm opacity-90">Ticket Promedio</p>
+        <p class="text-3xl font-bold mt-2">$${reservasActivas.length > 0 ? Math.round(reservasActivas.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0) / reservasActivas.length) : 0}</p>
+        <p class="text-xs opacity-75 mt-1">Por reserva</p>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Ingresos por Cancha -->
+      <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Ingresos por Cancha</h3>
+        <div class="space-y-3">
+          ${[1, 2, 3].map(cancha => {
+            const total = ingresosPorCancha[cancha] || 0;
+            const porcentaje = reservasActivas.length > 0 ? ((ingresosPorCancha[cancha] || 0) / reservasActivas.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0) * 100).toFixed(1) : 0;
+            return `
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="font-bold">Cancha ${cancha}</span>
+                  <span class="font-bold text-primary">$${Math.round(total).toLocaleString()} (${porcentaje}%)</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div class="bg-primary h-2 rounded-full" style="width: ${porcentaje}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
       <!-- Top Clientes -->
       <div class="bg-white rounded-xl shadow-md p-6">
         <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Clientes Frecuentes</h3>
@@ -1031,12 +1282,41 @@ function renderEstadisticasAvanzadas() {
       <div class="bg-white rounded-xl shadow-md p-6">
         <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Horarios Populares</h3>
         <div class="space-y-2">
-          ${topHorarios.length > 0 ? topHorarios.map(([hora, count], i) => `
-            <div class="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-              <p class="font-bold">${i + 1}. ${hora}:00 - ${parseInt(hora) + 1}:00</p>
-              <p class="font-bold text-primary">${count} reservas</p>
-            </div>
-          `).join('') : '<p class="text-gray-500 text-center py-4">Sin datos</p>'}
+          ${topHorarios.length > 0 ? topHorarios.map(([hora, count], i) => {
+            const porcentaje = reservasActivas.length > 0 ? (count / reservasActivas.length * 100).toFixed(1) : 0;
+            return `
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <p class="font-bold">${i + 1}. ${hora}:00 - ${parseInt(hora) + 1}:00</p>
+                  <p class="font-bold text-primary">${count} (${porcentaje}%)</p>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div class="bg-primary h-2 rounded-full" style="width: ${porcentaje}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('') : '<p class="text-gray-500 text-center py-4">Sin datos</p>'}
+        </div>
+      </div>
+
+      <!-- Días Populares -->
+      <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-xl font-bold text-primary mb-4 border-b pb-2">Dias Mas Populares</h3>
+        <div class="space-y-2">
+          ${topDias.length > 0 ? topDias.map(([dia, count], i) => {
+            const porcentaje = reservasActivas.length > 0 ? (count / reservasActivas.length * 100).toFixed(1) : 0;
+            return `
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <p class="font-bold capitalize">${i + 1}. ${dia}</p>
+                  <p class="font-bold text-primary">${count} (${porcentaje}%)</p>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div class="bg-primary h-2 rounded-full" style="width: ${porcentaje}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('') : '<p class="text-gray-500 text-center py-4">Sin datos</p>'}
         </div>
       </div>
 
@@ -1075,12 +1355,16 @@ function renderEstadisticasAvanzadas() {
             <span class="font-bold text-primary">${state.usuarios.length}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-700">Tasa Cancelacion:</span>
-            <span class="font-bold text-red-600">${state.reservas.length > 0 ? ((state.reservas.filter(r => r.estado === 'cancelada').length / state.reservas.length) * 100).toFixed(1) : 0}%</span>
+            <span class="text-gray-700">Clientes Nuevos:</span>
+            <span class="font-bold text-green-600">${clientesNuevos}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-700">Ticket Promedio:</span>
-            <span class="font-bold text-primary">$${reservasActivas.length > 0 ? Math.round(reservasActivas.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0) / reservasActivas.length) : 0}</span>
+            <span class="text-gray-700">Clientes Recurrentes:</span>
+            <span class="font-bold text-blue-600">${clientesRecurrentes}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-700">Tasa Cancelacion:</span>
+            <span class="font-bold text-red-600">${state.reservas.length > 0 ? ((state.reservas.filter(r => r.estado === 'cancelada').length / state.reservas.length) * 100).toFixed(1) : 0}%</span>
           </div>
         </div>
       </div>
@@ -1090,13 +1374,362 @@ function renderEstadisticasAvanzadas() {
   container.innerHTML = html;
 }
 
-// GRAFICAS (placeholder - necesitas Chart.js)
-function initCharts() {
-  // Placeholder para inicializar gráficas
-  // Requiere incluir Chart.js en el HTML
+// GESTION FINANCIERA
+function renderGestionFinanciera() {
+  const tbody = document.getElementById('financieroTable');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  let reservasFiltradas = state.reservas.filter(r => r.estado !== 'cancelada');
+
+  // Aplicar filtros
+  const filtroEstado = document.getElementById('filtroFinancieroEstado')?.value;
+  const filtroCancha = document.getElementById('filtroFinancieroCancha')?.value;
+  const filtroCliente = document.getElementById('filtroFinancieroCliente')?.value.toLowerCase();
+
+  if (filtroEstado && filtroEstado !== 'todos') {
+    if (filtroEstado === 'pagadas') {
+      reservasFiltradas = reservasFiltradas.filter(r => r.pagado);
+    } else if (filtroEstado === 'pendientes') {
+      reservasFiltradas = reservasFiltradas.filter(r => !r.pagado);
+    }
+  }
+
+  if (filtroCancha && filtroCancha !== 'todas') {
+    reservasFiltradas = reservasFiltradas.filter(r => r.cancha === parseInt(filtroCancha));
+  }
+
+  if (filtroCliente) {
+    reservasFiltradas = reservasFiltradas.filter(r => 
+      r.nombre.toLowerCase().includes(filtroCliente) || 
+      r.email.toLowerCase().includes(filtroCliente)
+    );
+  }
+
+  // Totales
+  const totalPagadas = reservasFiltradas.filter(r => r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+  const totalPendientes = reservasFiltradas.filter(r => !r.pagado).reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+  const totalGeneral = reservasFiltradas.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+
+  // Por método de pago
+  const porMetodo = {};
+  reservasFiltradas.filter(r => r.pagado && r.metodo_pago).forEach(r => {
+    porMetodo[r.metodo_pago] = (porMetodo[r.metodo_pago] || 0) + parseFloat(r.precio || 0);
+  });
+
+  const totalesEl = document.getElementById('financieroTotales');
+  if (totalesEl) {
+    totalesEl.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-green-100 rounded-lg p-4">
+          <p class="text-sm text-gray-700">Total Pagado</p>
+          <p class="text-2xl font-bold text-green-700">$${Math.round(totalPagadas).toLocaleString()}</p>
+        </div>
+        <div class="bg-yellow-100 rounded-lg p-4">
+          <p class="text-sm text-gray-700">Total Pendiente</p>
+          <p class="text-2xl font-bold text-yellow-700">$${Math.round(totalPendientes).toLocaleString()}</p>
+        </div>
+        <div class="bg-blue-100 rounded-lg p-4">
+          <p class="text-sm text-gray-700">Total General</p>
+          <p class="text-2xl font-bold text-blue-700">$${Math.round(totalGeneral).toLocaleString()}</p>
+        </div>
+        <div class="bg-purple-100 rounded-lg p-4">
+          <p class="text-sm text-gray-700">Por Metodo</p>
+          ${Object.entries(porMetodo).map(([metodo, total]) => `
+            <p class="text-xs text-gray-600">${metodo}: $${Math.round(total)}</p>
+          `).join('') || '<p class="text-xs text-gray-500">Sin datos</p>'}
+        </div>
+      </div>
+    `;
+  }
+
+  // Tabla
+  reservasFiltradas.sort((a, b) => {
+    const fechaA = obtenerFechaISO(a.fecha);
+    const fechaB = obtenerFechaISO(b.fecha);
+    return fechaB.localeCompare(fechaA) || b.hora_inicio.localeCompare(a.hora_inicio);
+  }).forEach(r => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-gray-50 border-b';
+
+    const estadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+    const estadoText = r.pagado ? 'Pagada' : 'Pendiente';
+
+    tr.innerHTML = `
+      <td class="px-4 py-3">${formatearFecha(r.fecha)}</td>
+      <td class="px-4 py-3">${convertirA12h(r.hora_inicio)}</td>
+      <td class="px-4 py-3 text-center">Cancha ${r.cancha}</td>
+      <td class="px-4 py-3">
+        <p class="font-bold">${r.nombre}</p>
+        <p class="text-xs text-gray-600">${r.email}</p>
+      </td>
+      <td class="px-4 py-3 font-bold text-primary">$${r.precio}</td>
+      <td class="px-4 py-3">
+        <span class="px-3 py-1 rounded-full text-xs font-bold ${estadoClass}">${estadoText}</span>
+        ${r.metodo_pago ? `<p class="text-xs text-gray-600 mt-1">${r.metodo_pago}</p>` : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (reservasFiltradas.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">No hay reservas con estos filtros</td></tr>';
+  }
 }
 
-function updateCharts() {
-  // Placeholder para actualizar gráficas
-  // Se implementaría con Chart.js
+// GESTION DE CANCHAS
+function renderGestionCanchas() {
+  const container = document.getElementById('gestionCanchasContainer');
+  if (!container) return;
+
+  const canchas = [1, 2, 3];
+  let html = '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">';
+
+  canchas.forEach(cancha => {
+    const activa = state.config.canchasActivas[cancha] !== false;
+    const reservasCancha = state.reservas.filter(r => r.cancha === cancha && r.estado !== 'cancelada');
+    const ingresos = reservasCancha.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
+
+    html += `
+      <div class="bg-white rounded-xl shadow-md p-6 ${!activa ? 'opacity-60' : ''}">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold">Cancha ${cancha}</h3>
+          <span class="px-3 py-1 rounded-full text-xs font-bold ${activa ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+            ${activa ? 'Activa' : 'Desactivada'}
+          </span>
+        </div>
+        
+        <div class="space-y-2 mb-4">
+          <p class="text-sm text-gray-600">Total reservas: <span class="font-bold">${reservasCancha.length}</span></p>
+          <p class="text-sm text-gray-600">Ingresos: <span class="font-bold text-primary">$${Math.round(ingresos)}</span></p>
+        </div>
+
+        <button onclick="toggleCanchaActiva(${cancha})" 
+                class="w-full px-4 py-2 ${activa ? 'bg-red-500' : 'bg-green-500'} text-white rounded-lg font-bold hover:opacity-80">
+          ${activa ? 'Desactivar' : 'Activar'} Cancha
+        </button>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+async function toggleCanchaActiva(cancha) {
+  const activa = state.config.canchasActivas[cancha] !== false;
+  const accion = activa ? 'desactivar' : 'activar';
+  
+  if (!confirm(`¿${accion.toUpperCase()} Cancha ${cancha}?`)) return;
+
+  state.config.canchasActivas[cancha] = !activa;
+
+  try {
+    await fetch(API_BASE + '/api/admin/canchas/toggle', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ cancha, activa: !activa })
+    });
+
+    alert(`Cancha ${cancha} ${accion}ada`);
+    renderGestionCanchas();
+  } catch (err) {
+    alert(`Error al ${accion} cancha`);
+  }
+}
+
+// CALENDARIO AVANZADO
+function initDatepicker() {
+  const fechaInput = document.getElementById('calendarioFecha');
+  if (fechaInput) {
+    fechaInput.value = new Date().toISOString().split('T')[0];
+  }
+}
+
+function renderCalendario() {
+  const container = document.getElementById('calendarioContainer');
+  if (!container) return;
+
+  const vista = state.vistaCalendario;
+  const fechaBase = document.getElementById('calendarioFecha')?.value || new Date().toISOString().split('T')[0];
+
+  if (vista === 'dia') {
+    renderCalendarioDia(container, fechaBase);
+  } else if (vista === 'semana') {
+    renderCalendarioSemana(container, fechaBase);
+  } else if (vista === 'mes') {
+    renderCalendarioMes(container, fechaBase);
+  }
+}
+
+function renderCalendarioDia(container, fecha) {
+  const reservasDia = state.reservas.filter(r => {
+    const fechaISO = obtenerFechaISO(r.fecha);
+    return fechaISO === fecha;
+  });
+
+  const horas = Array.from({ length: 17 }, (_, i) => i + 8); // 8am a 12am
+  const canchas = [1, 2, 3];
+
+  let html = `
+    <div class="bg-white rounded-xl shadow-md p-4">
+      <h3 class="text-xl font-bold text-primary mb-4">${formatearFecha(fecha)} - Vista Dia</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-primary-lighter">
+              <th class="border p-2 text-primary">Hora</th>
+              ${canchas.map(c => `<th class="border p-2 text-primary">Cancha ${c}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  horas.forEach(hora => {
+    html += '<tr>';
+    html += `<td class="border p-2 font-bold text-center">${hora}:00</td>`;
+    
+    canchas.forEach(cancha => {
+      const reserva = reservasDia.find(r => {
+        const horaInicio = parseInt(r.hora_inicio.split(':')[0]);
+        return r.cancha === cancha && horaInicio === hora && r.estado !== 'cancelada';
+      });
+
+      if (reserva) {
+        const bgClass = reserva.pagado ? 'bg-green-100' : 'bg-yellow-100';
+        html += `
+          <td class="border p-2 ${bgClass}">
+            <div class="text-xs">
+              <p class="font-bold">${reserva.nombre}</p>
+              <p class="text-gray-600">${reserva.duracion}h - $${reserva.precio}</p>
+            </div>
+          </td>
+        `;
+      } else {
+        html += '<td class="border p-2 bg-gray-50"></td>';
+      }
+    });
+    
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  container.innerHTML = html;
+}
+
+function renderCalendarioSemana(container, fechaBase) {
+  const fecha = new Date(fechaBase + 'T00:00:00');
+  const inicioSemana = new Date(fecha);
+  inicioSemana.setDate(fecha.getDate() - fecha.getDay());
+
+  const dias = Array.from({ length: 7 }, (_, i) => {
+    const dia = new Date(inicioSemana);
+    dia.setDate(inicioSemana.getDate() + i);
+    return dia.toISOString().split('T')[0];
+  });
+
+  let html = `
+    <div class="bg-white rounded-xl shadow-md p-4">
+      <h3 class="text-xl font-bold text-primary mb-4">Vista Semana</h3>
+      <div class="grid grid-cols-7 gap-2">
+  `;
+
+  dias.forEach(dia => {
+    const reservasDia = state.reservas.filter(r => {
+      const fechaISO = obtenerFechaISO(r.fecha);
+      return fechaISO === dia && r.estado !== 'cancelada';
+    });
+
+    const fecha = new Date(dia + 'T00:00:00');
+    const diaSemana = fecha.toLocaleDateString('es-MX', { weekday: 'short' });
+    const diaNum = fecha.getDate();
+
+    html += `
+      <div class="border rounded-lg p-2">
+        <p class="font-bold text-center text-sm">${diaSemana} ${diaNum}</p>
+        <div class="space-y-1 mt-2">
+          ${reservasDia.slice(0, 3).map(r => `
+            <div class="${r.pagado ? 'bg-green-100' : 'bg-yellow-100'} rounded p-1 text-xs">
+              <p class="font-bold truncate">${convertirA12h(r.hora_inicio)}</p>
+              <p class="truncate">C${r.cancha} - ${r.nombre.split(' ')[0]}</p>
+            </div>
+          `).join('')}
+          ${reservasDia.length > 3 ? `<p class="text-xs text-gray-500 text-center">+${reservasDia.length - 3} más</p>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div></div>';
+  container.innerHTML = html;
+}
+
+function renderCalendarioMes(container, fechaBase) {
+  const fecha = new Date(fechaBase + 'T00:00:00');
+  const año = fecha.getFullYear();
+  const mes = fecha.getMonth();
+  const primerDia = new Date(año, mes, 1);
+  const ultimoDia = new Date(año, mes + 1, 0);
+  const diasMes = ultimoDia.getDate();
+  const primerDiaSemana = primerDia.getDay();
+
+  const nombreMes = fecha.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+  let html = `
+    <div class="bg-white rounded-xl shadow-md p-4">
+      <h3 class="text-xl font-bold text-primary mb-4 capitalize">${nombreMes} - Vista Mes</h3>
+      <div class="grid grid-cols-7 gap-2">
+        ${['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(d => 
+          `<div class="font-bold text-center text-sm">${d}</div>`
+        ).join('')}
+  `;
+
+  // Días vacíos antes del inicio del mes
+  for (let i = 0; i < primerDiaSemana; i++) {
+    html += '<div class="border rounded-lg p-2 bg-gray-50"></div>';
+  }
+
+  // Días del mes
+  for (let dia = 1; dia <= diasMes; dia++) {
+    const fechaDia = `${año}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const reservasDia = state.reservas.filter(r => {
+      const fechaISO = obtenerFechaISO(r.fecha);
+      return fechaISO === fechaDia && r.estado !== 'cancelada';
+    });
+
+    const esHoy = fechaDia === new Date().toISOString().split('T')[0];
+
+    html += `
+      <div class="border rounded-lg p-2 ${esHoy ? 'bg-blue-50 border-blue-300' : ''} min-h-[80px]">
+        <p class="font-bold text-sm ${esHoy ? 'text-blue-600' : ''}">${dia}</p>
+        ${reservasDia.length > 0 ? `
+          <div class="mt-1">
+            <p class="text-xs bg-primary text-white rounded px-1 text-center">${reservasDia.length}</p>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  html += '</div></div>';
+  container.innerHTML = html;
+}
+
+function cambiarVistaCalendario(vista) {
+  state.vistaCalendario = vista;
+  
+  document.querySelectorAll('.vista-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.getElementById(`vista${vista.charAt(0).toUpperCase() + vista.slice(1)}`).classList.add('active');
+  
+  renderCalendario();
+}
+
+function cambiarFechaCalendario() {
+  renderCalendario();
 }

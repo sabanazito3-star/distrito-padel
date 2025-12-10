@@ -30,6 +30,15 @@
         .tab-button:hover:not(.active) {
             background: #f3f4f6;
         }
+        .vista-btn {
+            transition: all 0.3s;
+            background: white;
+            color: #6b7280;
+        }
+        .vista-btn.active {
+            background: var(--primary-green);
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -41,7 +50,7 @@
                     <img src="logo2.png" alt="Distrito Padel" class="h-16 object-contain">
                     <div>
                         <h1 class="text-3xl font-bold">Panel Administrativo</h1>
-                        <p class="text-sm opacity-80">Distrito Padel v8.0</p>
+                        <p class="text-sm opacity-80">Distrito Padel v8.1 - Completo</p>
                     </div>
                 </div>
                 <div id="lastUpdate" class="text-sm opacity-80"></div>
@@ -120,31 +129,43 @@
             <!-- Tabs -->
             <div class="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-md overflow-x-auto">
                 <button id="tabDashboard" onclick="showTab('dashboard')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold active whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold active whitespace-nowrap text-sm">
                     Dashboard
                 </button>
                 <button id="tabReservas" onclick="showTab('reservas')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
                     Reservas
                 </button>
                 <button id="tabUsuarios" onclick="showTab('usuarios')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
                     Usuarios
                 </button>
+                <button id="tabFinanciero" onclick="showTab('financiero')" 
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
+                    Financiero
+                </button>
+                <button id="tabCanchas" onclick="showTab('canchas')" 
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
+                    Canchas
+                </button>
+                <button id="tabCalendario" onclick="showTab('calendario')" 
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
+                    Calendario
+                </button>
                 <button id="tabPromociones" onclick="showTab('promociones')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
                     Promociones
                 </button>
                 <button id="tabBloqueos" onclick="showTab('bloqueos')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
                     Bloqueos
                 </button>
                 <button id="tabConfig" onclick="showTab('config')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
                     Configuracion
                 </button>
                 <button id="tabReportes" onclick="showTab('reportes')" 
-                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                        class="tab-button flex-1 px-4 py-3 rounded-lg font-bold whitespace-nowrap text-sm">
                     Reportes
                 </button>
             </div>
@@ -163,7 +184,7 @@
 
                 <!-- Formulario Crear Reserva Manual -->
                 <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual (Telefono/WhatsApp)</h3>
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha *</label>
@@ -222,6 +243,7 @@
                                 <th class="px-4 py-3 font-bold text-primary">Cliente</th>
                                 <th class="px-4 py-3 font-bold text-primary">Precio</th>
                                 <th class="px-4 py-3 font-bold text-primary">Estado</th>
+                                <th class="px-4 py-3 font-bold text-primary">Notas</th>
                                 <th class="px-4 py-3 font-bold text-primary">Acciones</th>
                             </tr>
                         </thead>
@@ -249,12 +271,99 @@
                                 <th class="px-4 py-3 font-bold text-primary">Telefono</th>
                                 <th class="px-4 py-3 font-bold text-primary text-center">Reservas</th>
                                 <th class="px-4 py-3 font-bold text-primary text-center">Total Gastado</th>
+                                <th class="px-4 py-3 font-bold text-primary text-center">Estado</th>
                                 <th class="px-4 py-3 font-bold text-primary text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="usuariosTable"></tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- CONTENIDO FINANCIERO -->
+            <div id="contentFinanciero" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-primary">Gestion Financiera</h2>
+
+                <!-- Filtros -->
+                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Estado</label>
+                            <select id="filtroFinancieroEstado" onchange="renderGestionFinanciera()" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="todos">Todos</option>
+                                <option value="pagadas">Pagadas</option>
+                                <option value="pendientes">Pendientes</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Cancha</label>
+                            <select id="filtroFinancieroCancha" onchange="renderGestionFinanciera()" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="todas">Todas</option>
+                                <option value="1">Cancha 1</option>
+                                <option value="2">Cancha 2</option>
+                                <option value="3">Cancha 3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Buscar Cliente</label>
+                            <input type="text" id="filtroFinancieroCliente" placeholder="Nombre o email" onkeyup="renderGestionFinanciera()"
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Totales -->
+                <div id="financieroTotales" class="mb-6"></div>
+
+                <!-- Tabla -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-primary-lighter text-left">
+                                <th class="px-4 py-3 font-bold text-primary">Fecha</th>
+                                <th class="px-4 py-3 font-bold text-primary">Hora</th>
+                                <th class="px-4 py-3 font-bold text-primary text-center">Cancha</th>
+                                <th class="px-4 py-3 font-bold text-primary">Cliente</th>
+                                <th class="px-4 py-3 font-bold text-primary">Precio</th>
+                                <th class="px-4 py-3 font-bold text-primary">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="financieroTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CONTENIDO CANCHAS -->
+            <div id="contentCanchas" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-primary">Gestion de Canchas</h2>
+                <div id="gestionCanchasContainer"></div>
+            </div>
+
+            <!-- CONTENIDO CALENDARIO -->
+            <div id="contentCalendario" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+                    <h2 class="text-2xl font-bold text-primary">Calendario Avanzado</h2>
+                    
+                    <div class="flex gap-2">
+                        <button id="vistaDia" onclick="cambiarVistaCalendario('dia')" 
+                                class="vista-btn px-4 py-2 rounded-lg font-bold active">
+                            Dia
+                        </button>
+                        <button id="vistaSemana" onclick="cambiarVistaCalendario('semana')" 
+                                class="vista-btn px-4 py-2 rounded-lg font-bold">
+                            Semana
+                        </button>
+                        <button id="vistaMes" onclick="cambiarVistaCalendario('mes')" 
+                                class="vista-btn px-4 py-2 rounded-lg font-bold">
+                            Mes
+                        </button>
+                    </div>
+
+                    <input type="date" id="calendarioFecha" onchange="cambiarFechaCalendario()" 
+                           class="px-4 py-2 border-2 rounded-lg focus:border-primary focus:outline-none">
+                </div>
+
+                <div id="calendarioContainer"></div>
             </div>
 
             <!-- CONTENIDO PROMOCIONES -->
@@ -281,12 +390,18 @@
                             <label class="block text-sm font-bold mb-2">Hora Fin (opcional)</label>
                             <input type="time" id="promoHoraFin" class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">Codigo (opcional)</label>
+                            <input type="text" id="promoCodigo" placeholder="Ej: VERANO2025" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
                     </div>
                     <p class="text-sm text-gray-600 mb-4">
                         <strong>Ejemplos:</strong><br>
                         Sin fecha + Sin horas = Promocion permanente<br>
                         Con fecha + Sin horas = Promocion ese dia completo<br>
-                        Con fecha + Con horas = Promocion en rango horario
+                        Con fecha + Con horas = Promocion en rango horario<br>
+                        Con codigo = Promocion por codigo descuento
                     </p>
                     <button onclick="crearPromocion()" 
                             class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700">
@@ -301,8 +416,9 @@
             <div id="contentBloqueos" class="bg-white rounded-xl shadow-md p-6 hidden">
                 <h2 class="text-2xl font-bold mb-6 text-red-600">Gestion de Bloqueos</h2>
 
+                <!-- Bloqueo Simple -->
                 <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-red-700">Crear Nuevo Bloqueo</h3>
+                    <h3 class="text-xl font-bold mb-4 text-red-700">Crear Bloqueo Simple</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha *</label>
@@ -337,14 +453,47 @@
                     </button>
                 </div>
 
+                <!-- Bloqueo Masivo -->
+                <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-orange-700">Crear Bloqueo Masivo</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha Inicio *</label>
+                            <input type="date" id="bloqueoMasivoInicio" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha Fin *</label>
+                            <input type="date" id="bloqueoMasivoFin" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Cancha (opcional)</label>
+                            <select id="bloqueoMasivoCancha" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="">Todas las canchas</option>
+                                <option value="1">Cancha 1</option>
+                                <option value="2">Cancha 2</option>
+                                <option value="3">Cancha 3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Motivo</label>
+                            <input type="text" id="bloqueoMasivoMotivo" placeholder="Ej: Temporada baja" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                    </div>
+                    <button onclick="crearBloqueoMasivo()" 
+                            class="w-full px-6 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700">
+                        Crear Bloqueo Masivo
+                    </button>
+                </div>
+
                 <div id="bloqueosLista"></div>
             </div>
 
             <!-- CONTENIDO CONFIGURACIÓN -->
             <div id="contentConfig" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-primary">Configuracion de Precios</h2>
+                <h2 class="text-2xl font-bold mb-6 text-primary">Configuracion del Sistema</h2>
 
-                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-xl p-6 mb-6">
                     <h3 class="text-xl font-bold mb-4 text-orange-700">Gestion de Tarifas</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
@@ -369,7 +518,7 @@
                     </button>
                 </div>
 
-                <div id="configActual" class="mt-6 bg-gray-50 rounded-xl p-6">
+                <div id="configActual" class="bg-gray-50 rounded-xl p-6">
                     <h3 class="font-bold text-gray-700 mb-3">Configuracion Actual</h3>
                     <div class="grid grid-cols-3 gap-4 text-sm">
                         <div class="bg-white rounded-lg p-3 border">
