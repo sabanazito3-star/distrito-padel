@@ -27,14 +27,6 @@
       background-repeat: no-repeat;
     }
     
-    .bg-dashboard {
-      background-image: url('fondo-dashboard.jpg');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
-    }
-    
     /* Optimización de carga de imágenes */
     img {
       image-rendering: -webkit-optimize-contrast;
@@ -65,6 +57,7 @@
   
   <!-- Preload de imágenes críticas -->
   <link rel="preload" as="image" href="logo.png">
+  <link rel="preload" as="image" href="logo2.png">
   <link rel="preload" as="image" href="fondo-login.jpg">
 </head>
 <body class="bg-gray-50">
@@ -75,7 +68,7 @@
     <div class="absolute inset-0 bg-black opacity-40"></div>
     
     <div class="max-w-md w-full relative z-10">
-      <!-- Logo MAS GRANDE Y CENTRADO -->
+      <!-- Logo LOGIN (logo.png) -->
       <div class="text-center mb-8">
         <img src="logo.png" alt="Distrito Padel" class="w-full max-w-lg mx-auto mb-4 object-contain" loading="eager">
         <p class="text-white text-xl font-bold drop-shadow-lg">Reserva tu cancha facilmente</p>
@@ -147,14 +140,15 @@
 
   <!-- DASHBOARD SECTION -->
   <div id="dashboardSection" class="hidden min-h-screen">
-    <!-- Header CON LOGO CENTRADO -->
+    <!-- Header CON LOGO A LA IZQUIERDA CENTRADO VERTICALMENTE -->
     <header class="bg-primary text-white py-3 shadow-lg">
       <div class="container mx-auto px-4 flex items-center justify-between">
-        <div class="flex items-center justify-center flex-1">
-          <!-- Logo centrado en el header -->
-          <img src="logo.png" alt="Distrito Padel" class="h-20 object-contain" loading="lazy">
+        <!-- Logo RESERVAS a la izquierda (logo2.png) -->
+        <div class="flex items-center">
+          <img src="logo2.png" alt="Distrito Padel" class="h-20 object-contain" loading="lazy">
         </div>
-        <div id="userInfo" class="text-right absolute right-4">
+        <!-- Usuario a la derecha -->
+        <div id="userInfo" class="text-right">
           <p class="font-bold text-sm" id="userNombre"></p>
           <button onclick="logout()" class="text-xs opacity-80 hover:opacity-100">Cerrar sesion</button>
         </div>
