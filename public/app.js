@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v7.1 - Selección duración modal estilo Joger
+// app.js - Frontend Distrito Padel v7.2 - Validación servidor + Rangos de hora
 const API_BASE = '';
 
 let state = {
@@ -12,18 +12,30 @@ let state = {
   reservas: [],
   promociones: [],
   bloqueos: [],
-  config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } }
+  config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } },
+  serverTime: null // Hora del servidor
 };
 
 // INICIALIZAR
 document.addEventListener('DOMContentLoaded', () => {
   cargarConfig();
+  cargarHoraServidor();
   if (state.token) {
     mostrarDashboard();
   } else {
     mostrarAuth();
   }
 });
+
+// CARGAR HORA DEL SERVIDOR
+async function cargarHoraServidor() {
+  try {
+    const res = await fetch(API_BASE + '/api/server-time');
+    state.serverTime = await res.json();
+  } catch (err) {
+    console.error('Error al obtener hora del servidor:', err);
+  }
+}
 
 // CARGAR CONFIG
 async function cargarConfig() {
@@ -42,19 +54,21 @@ function mostrarAuth() {
 }
 
 // MOSTRAR DASHBOARD
-function mostrarDashboard() {
+async function mostrarDashboard() {
   document.getElementById('authSection').classList.add('hidden');
   document.getElementById('dashboardSection').classList.remove('hidden');
   document.getElementById('userNombre').textContent = state.nombre;
   
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
+  // Esperar a que se cargue la hora del servidor
+  if (!state.serverTime) {
+    await cargarHoraServidor();
+  }
   
-  const maxDate = new Date(today);
-  maxDate.setDate(today.getDate() + 7);
+  const todayStr = state.serverTime.fecha;
+  
+  const serverDate = new Date(state.serverTime.timestamp);
+  const maxDate = new Date(serverDate);
+  maxDate.setDate(serverDate.getDate() + 7);
   const maxYear = maxDate.getFullYear();
   const maxMonth = String(maxDate.getMonth() + 1).padStart(2, '0');
   const maxDay = String(maxDate.getDate()).padStart(2, '0');
@@ -66,20 +80,27 @@ function mostrarDashboard() {
   dateInput.value = todayStr;
   state.selectedDate = todayStr;
   
-  dateInput.addEventListener('change', function() {
+  dateInput.addEventListener('change', async function() {
+    // Revalidar con el servidor
+    await cargarHoraServidor();
+    const serverToday = state.serverTime.fecha;
     const selectedValue = this.value;
     
-    if (selectedValue < todayStr) {
+    if (selectedValue < serverToday) {
       alert('No puedes reservar en fechas pasadas');
-      this.value = todayStr;
+      this.value = serverToday;
+      state.selectedDate = serverToday;
       return;
     }
     
     if (selectedValue > maxDateStr) {
       alert('Solo puedes reservar hasta 7 dias adelante');
       this.value = maxDateStr;
+      state.selectedDate = maxDateStr;
       return;
     }
+    
+    state.selectedDate = selectedValue;
     
     if (state.selectedCourt) {
       cargarDisponibilidad();
@@ -210,6 +231,9 @@ async function cargarDisponibilidad() {
   const cancha = state.selectedCourt;
 
   if (!fecha || !cancha) return;
+  
+  // Revalidar hora del servidor antes de cargar
+  await cargarHoraServidor();
 
   state.selectedDate = fecha;
 
@@ -226,26 +250,32 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS - ESTILO JOGER (Click para modal de duraciones)
+// RENDERIZAR HORARIOS - Validación con servidor
 function renderizarHorarios() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
 
-  const hoy = new Date();
-  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  if (!state.serverTime) {
+    container.innerHTML = '<p class="text-center text-gray-500 py-4">Cargando...</p>';
+    return;
+  }
+
+  const hoyStr = state.serverTime.fecha;
+  const horaServidor = state.serverTime.hora;
+  const minutosServidor = state.serverTime.minutos;
 
   for (let h = 8; h <= 23; h++) {
     for (let minutos = 0; minutos < 60; minutos += 30) {
       const horaActual = h + (minutos / 60);
       const hora = `${h.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
       
-      // Verificar si la hora ya pasó
+      // Verificar si la hora ya pasó (usando hora del servidor)
       let pasado = false;
       if (state.selectedDate < hoyStr) {
         pasado = true;
       } else if (state.selectedDate === hoyStr) {
-        const horaActualCompleta = hoy.getHours() + (hoy.getMinutes() / 60);
-        if (horaActual <= horaActualCompleta) {
+        const horaActualServidor = horaServidor + (minutosServidor / 60);
+        if (horaActual <= horaActualServidor) {
           pasado = true;
         }
       }
@@ -302,7 +332,16 @@ function renderizarHorarios() {
   }
 }
 
-// MOSTRAR MODAL DE DURACIONES (Estilo Joger)
+// CALCULAR HORA FIN
+function calcularHoraFin(horaInicio, duracion) {
+  const [h, m] = horaInicio.split(':').map(Number);
+  const minutosTotal = (h * 60 + m) + (duracion * 60);
+  const horaFin = Math.floor(minutosTotal / 60);
+  const minutosFin = minutosTotal % 60;
+  return `${horaFin.toString().padStart(2, '0')}:${minutosFin.toString().padStart(2, '0')}`;
+}
+
+// MOSTRAR MODAL DE DURACIONES
 function mostrarModalDuraciones(hora) {
   state.selectedTime = hora;
   const [h, m] = hora.split(':').map(Number);
@@ -321,7 +360,6 @@ function mostrarModalDuraciones(hora) {
       return;
     }
     
-    // Verificar si está ocupado
     const ocupado = state.reservas.some(r => {
       const horaArr = r.hora_inicio.split(':');
       const inicioMin = parseInt(horaArr[0]) * 60 + parseInt(horaArr[1] || 0);
@@ -391,12 +429,16 @@ function mostrarModalDuraciones(hora) {
     const precioFinal = Math.round(precioBase * (1 - descuento / 100));
     const duracionTexto = duracion === 1 ? '1h 00min' : duracion === 1.5 ? '1h 30min' : '2h 00min';
     
+    // Calcular hora fin
+    const horaFin = calcularHoraFin(hora, duracion);
+    
     opcionesHTML += `
-      <button onclick="seleccionarDuracion(${duracion}, ${precioFinal}, ${descuento}, ${precioBase})" 
+      <button onclick="seleccionarDuracion(${duracion}, ${precioFinal}, ${descuento}, ${precioBase}, '${horaFin}')" 
         class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary-lighter transition text-left mb-3">
         <div class="flex justify-between items-center">
           <div>
             <p class="font-bold text-gray-800">${duracionTexto}</p>
+            <p class="text-xs text-gray-600">${convertirA12h(hora)} - ${convertirA12h(horaFin)}</p>
             ${descuento > 0 ? `<p class="text-xs text-purple-600 font-bold">${descuento}% OFF</p>` : ''}
           </div>
           <div class="text-right">
@@ -418,7 +460,7 @@ function mostrarModalDuraciones(hora) {
 }
 
 // SELECCIONAR DURACIÓN
-function seleccionarDuracion(duracion, precioFinal, descuento, precioBase) {
+function seleccionarDuracion(duracion, precioFinal, descuento, precioBase, horaFin) {
   state.selectedDuration = duracion;
   cerrarModalDuracion();
   
@@ -426,8 +468,8 @@ function seleccionarDuracion(duracion, precioFinal, descuento, precioBase) {
   
   document.getElementById('confirmacionDetalle').innerHTML = `
     <p class="text-lg"><strong>Cancha:</strong> ${state.selectedCourt}</p>
-    <p class="text-lg"><strong>Fecha:</strong> ${state.selectedDate}</p>
-    <p class="text-lg"><strong>Hora:</strong> ${convertirA12h(state.selectedTime)}</p>
+    <p class="text-lg"><strong>Fecha:</strong> ${formatearFecha(state.selectedDate)}</p>
+    <p class="text-lg"><strong>Hora:</strong> ${convertirA12h(state.selectedTime)} - ${convertirA12h(horaFin)}</p>
     <p class="text-lg"><strong>Duracion:</strong> ${duracionTexto}</p>
     ${descuento > 0 ? `
       <p class="text-lg text-purple-600 font-bold"><strong>Descuento:</strong> ${descuento}%</p>
@@ -443,8 +485,30 @@ function cerrarModalDuracion() {
   document.getElementById('duracionModal').classList.add('hidden');
 }
 
-// CONFIRMAR RESERVA
+// CONFIRMAR RESERVA (con validación de servidor)
 async function confirmarReserva() {
+  // Revalidar con el servidor antes de confirmar
+  await cargarHoraServidor();
+  
+  const [h, m] = state.selectedTime.split(':').map(Number);
+  const horaReserva = h + (m / 60);
+  const horaActualServidor = state.serverTime.hora + (state.serverTime.minutos / 60);
+  
+  // Verificar si la hora ya pasó
+  if (state.selectedDate === state.serverTime.fecha && horaReserva <= horaActualServidor) {
+    alert('Esta hora ya paso. Por favor selecciona otro horario.');
+    cerrarModal();
+    cargarDisponibilidad();
+    return;
+  }
+  
+  // Verificar si la fecha es pasada
+  if (state.selectedDate < state.serverTime.fecha) {
+    alert('Esta fecha ya paso. Por favor selecciona otra fecha.');
+    cerrarModal();
+    return;
+  }
+  
   try {
     const res = await fetch(API_BASE + '/api/reservas/crear', {
       method: 'POST',
@@ -472,7 +536,13 @@ async function confirmarReserva() {
   }
 }
 
-// VER MIS RESERVAS
+// FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YYYY)
+function formatearFecha(fechaStr) {
+  const [year, month, day] = fechaStr.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+// VER MIS RESERVAS (con formato mejorado)
 async function verMisReservas() {
   try {
     const res = await fetch(API_BASE + '/api/mis-reservas', {
@@ -489,11 +559,21 @@ async function verMisReservas() {
       reservas.forEach(r => {
         const div = document.createElement('div');
         div.className = 'bg-primary-lighter rounded-xl p-6 mb-4 border-2 border-primary';
+        
+        // Formatear fecha
+        const fechaFormateada = r.fecha.includes('T') ? 
+          formatearFecha(r.fecha.split('T')[0]) : 
+          formatearFecha(r.fecha);
+        
+        // Calcular hora fin
+        const horaFin = calcularHoraFin(r.hora_inicio, r.duracion);
+        
         div.innerHTML = `
           <div class="flex justify-between items-start mb-3">
             <div>
               <p class="text-xl font-bold text-primary">Cancha ${r.cancha}</p>
-              <p class="text-sm text-gray-600 mt-1">${r.fecha} - ${convertirA12h(r.hora_inicio)} - ${r.duracion}h</p>
+              <p class="text-sm text-gray-600 mt-1">${fechaFormateada}</p>
+              <p class="text-sm text-gray-600">${convertirA12h(r.hora_inicio)} - ${convertirA12h(horaFin)} (${r.duracion}h)</p>
             </div>
             <button onclick="cancelarReserva('${r.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
               Cancelar

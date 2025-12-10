@@ -957,6 +957,23 @@ app.get('/api/test', async (req, res) => {
   }
 });
 
+// OBTENER HORA DEL SERVIDOR
+app.get('/api/server-time', (req, res) => {
+  const now = new Date();
+  
+  // Convertir a MST (UTC-7)
+  const mstOffset = -7 * 60; // -7 horas en minutos
+  const localTime = new Date(now.getTime() + (mstOffset * 60 * 1000));
+  
+  res.json({
+    timestamp: localTime.toISOString(),
+    fecha: localTime.toISOString().split('T')[0],
+    hora: localTime.getHours(),
+    minutos: localTime.getMinutes()
+  });
+});
+
+
 
 // INICIAR SERVIDOR
 app.listen(PORT, '0.0.0.0', async () => {
