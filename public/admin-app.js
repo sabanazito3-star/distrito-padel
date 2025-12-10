@@ -1,3 +1,4 @@
+
 // admin-app.js - Panel Admin Avanzado v8.1 - COMPLETO
 const API_BASE = '';
 
@@ -54,12 +55,20 @@ async function loadAllData() {
   localStorage.setItem('admin_token', token);
 
   try {
-    const [reservas, usuarios, promociones, bloqueos] = await Promise.all([
-      api('/reservas'),
-      api('/usuarios'),
-      fetch(API_BASE + '/api/promociones').then(r => r.json()),
-      fetch(API_BASE + '/api/bloqueos').then(r => r.json())
-    ]);
+    // Cargar solo los endpoints que SÍ existen
+    const reservas = await api('/reservas');
+
+    // Intentar cargar usuarios (si falla, array vacío)
+    let usuarios = [];
+    try {
+      usuarios = await api('/usuarios');
+    } catch (err) {
+      console.warn('Endpoint usuarios no disponible');
+    }
+
+    // Cargar promociones y bloqueos sin romper todo si fallan
+    const promociones = await fetch(API_BASE + '/api/promociones').then(r => r.json()).catch(() => []);
+    const bloqueos = await fetch(API_BASE + '/api/bloqueos').then(r => r.json()).catch(() => []);
 
     state.reservas = reservas;
     state.usuarios = usuarios;
@@ -81,7 +90,8 @@ async function loadAllData() {
       startAutoUpdate();
     }
   } catch (err) {
-    alert('Error: ' + (err.msg || 'Token invalido'));
+    console.error('Error completo:', err);
+    alert('Error: ' + (err.msg || err.error || 'Token invalido o servidor no responde'));
     localStorage.removeItem('admin_token');
     stopAutoUpdate();
   }
