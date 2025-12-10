@@ -10,6 +10,7 @@
       --primary-green: #26422b;
       --primary-green-light: #3a5f40;
       --primary-green-lighter: #d4e6d6;
+      --yellow-brand: #f59e0b;
     }
     
     .bg-primary { background-color: var(--primary-green); }
@@ -19,7 +20,25 @@
     .border-primary { border-color: var(--primary-green); }
     .border-primary-light { border-color: var(--primary-green-light); }
     
-    /* Preload de imagen de fondo */
+    /* Grid Playtomic */
+    #horariosDisponibles {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.5rem;
+      max-width: 100%;
+    }
+    
+    @media (min-width: 768px) {
+      #horariosDisponibles {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      }
+    }
+    
+    .hover\:scale-105:hover { 
+      transform: scale(1.05); 
+      transition: transform 0.2s ease;
+    }
+    
     .bg-login {
       background-image: url('fondo-login.jpg');
       background-size: cover;
@@ -27,7 +46,6 @@
       background-repeat: no-repeat;
     }
     
-    /* Optimización de carga de imágenes */
     img {
       image-rendering: -webkit-optimize-contrast;
       image-rendering: crisp-edges;
@@ -44,6 +62,7 @@
       background-color: #26422b;
       color: white;
       border-color: #26422b;
+      box-shadow: 0 4px 12px rgba(38, 66, 43, 0.4);
     }
     
     .btn-primary {
@@ -52,29 +71,39 @@
     }
     .btn-primary:hover {
       background: linear-gradient(to right, #1e3621, #26422b);
+      box-shadow: 0 6px 16px rgba(38, 66, 43, 0.3);
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .modal-overlay {
+      backdrop-filter: blur(4px);
     }
   </style>
   
-  <!-- Preload de imágenes críticas -->
   <link rel="preload" as="image" href="logo.png">
   <link rel="preload" as="image" href="logo2.png">
   <link rel="preload" as="image" href="fondo-login.jpg">
 </head>
 <body class="bg-gray-50">
 
-  <!-- AUTH SECTION CON FONDO -->
+  <!-- AUTH SECTION -->
   <div id="authSection" class="min-h-screen flex items-center justify-center px-4 py-12 bg-login relative">
-    <!-- Overlay oscuro opcional para mejor legibilidad -->
     <div class="absolute inset-0 bg-black opacity-40"></div>
     
-    <div class="max-w-md w-full relative z-10">
-      <!-- Logo LOGIN (logo.png) -->
+    <div class="max-w-md w-full relative z-10 fade-in">
       <div class="text-center mb-8">
         <img src="logo.png" alt="Distrito Padel" class="w-full max-w-lg mx-auto mb-4 object-contain" loading="eager">
-        <p class="text-white text-xl font-bold drop-shadow-lg">Reserva tu cancha facilmente</p>
+        <p class="text-white text-xl font-bold drop-shadow-lg">Reserva tu cancha fácilmente</p>
       </div>
 
-      <!-- Tabs -->
       <div class="flex gap-2 mb-6">
         <button class="tab-btn flex-1 py-3 px-6 rounded-lg font-bold shadow active bg-white" onclick="mostrarFormLogin()">
           Iniciar Sesión
@@ -86,7 +115,7 @@
 
       <!-- Login Form -->
       <div id="loginForm" class="bg-white rounded-xl shadow-md p-8">
-        <h2 class="text-2xl font-bold mb-6 text-gray-800">Iniciar Sesion</h2>
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Iniciar Sesión</h2>
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-bold mb-2">Email</label>
@@ -120,13 +149,13 @@
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
-            <label class="block text-sm font-bold mb-2">Telefono (10 digitos)</label>
+            <label class="block text-sm font-bold mb-2">Teléfono (10 dígitos)</label>
             <input type="tel" id="regTelefono" placeholder="5551234567" maxlength="10"
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <div>
-            <label class="block text-sm font-bold mb-2">Contrasena</label>
-            <input type="password" id="regPassword" placeholder="Minimo 6 caracteres" 
+            <label class="block text-sm font-bold mb-2">Contraseña</label>
+            <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" 
               class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
           </div>
           <button onclick="registrar()" 
@@ -140,94 +169,89 @@
 
   <!-- DASHBOARD SECTION -->
   <div id="dashboardSection" class="hidden min-h-screen">
-    <!-- Header CON LOGO A LA IZQUIERDA CENTRADO VERTICALMENTE -->
     <header class="bg-primary text-white py-3 shadow-lg">
       <div class="container mx-auto px-4 flex items-center justify-between">
-        <!-- Logo RESERVAS a la izquierda (logo2.png) -->
         <div class="flex items-center">
           <img src="logo2.png" alt="Distrito Padel" class="h-20 object-contain" loading="lazy">
         </div>
-        <!-- Usuario a la derecha -->
         <div id="userInfo" class="text-right">
           <p class="font-bold text-sm" id="userNombre"></p>
-          <button onclick="logout()" class="text-xs opacity-80 hover:opacity-100">Cerrar sesion</button>
+          <button onclick="logout()" class="text-xs opacity-80 hover:opacity-100">Cerrar sesión</button>
         </div>
       </div>
     </header>
 
-    <!-- Contenido -->
     <div class="container mx-auto px-4 py-8">
-      <!-- Botones -->
       <div class="flex gap-4 mb-6">
         <button onclick="verMisReservas()" 
-          class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">
+          class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-md hover:shadow-lg">
           Mis Reservas
         </button>
       </div>
 
       <!-- Fecha -->
-      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
         <h2 class="text-2xl font-bold mb-4 text-primary">Selecciona Fecha</h2>
         <input type="date" id="fechaReserva" 
-          class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none text-lg">
+          class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none text-lg font-semibold">
       </div>
 
       <!-- Canchas -->
-      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
         <h2 class="text-2xl font-bold mb-4 text-primary">Selecciona Cancha</h2>
         <div class="grid grid-cols-3 gap-4">
           <button onclick="seleccionarCancha(1)" 
-            class="cancha-btn py-4 bg-primary-lighter border-2 border-primary rounded-xl font-bold">
+            class="cancha-btn py-6 bg-primary-lighter border-2 border-primary rounded-xl font-bold text-lg hover:shadow-lg">
             Cancha 1
           </button>
           <button onclick="seleccionarCancha(2)" 
-            class="cancha-btn py-4 bg-primary-lighter border-2 border-primary rounded-xl font-bold">
+            class="cancha-btn py-6 bg-primary-lighter border-2 border-primary rounded-xl font-bold text-lg hover:shadow-lg">
             Cancha 2
           </button>
           <button onclick="seleccionarCancha(3)" 
-            class="cancha-btn py-4 bg-primary-lighter border-2 border-primary rounded-xl font-bold">
+            class="cancha-btn py-6 bg-primary-lighter border-2 border-primary rounded-xl font-bold text-lg hover:shadow-lg">
             Cancha 3
           </button>
         </div>
       </div>
 
       <!-- Horarios Disponibles -->
-      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4 text-primary">Horarios Disponibles</h2>
-        <p class="text-sm text-gray-600 mb-4">Selecciona un horario</p>
-        
-        <div id="horariosDisponibles" class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-2">
-          <!-- Se genera dinamicamente -->
+      <div class="bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
+        <h2 class="text-2xl font-bold mb-2 text-primary">Horarios Disponibles</h2>
+        <p class="text-sm text-gray-600 mb-4">Haz clic en un horario para ver opciones de duración</p>
+        <div id="horariosDisponibles">
+          <!-- Grid Playtomic generado dinámicamente -->
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal Seleccion de Duracion (Estilo Joger) -->
-  <div id="duracionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-bold text-primary" id="duracionModalTitulo">Selecciona duracion</h2>
-        <button onclick="cerrarModalDuracion()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+  <!-- Modal Duración -->
+  <div id="duracionModal" class="hidden fixed inset-0 bg-black bg-opacity-60 modal-overlay flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 fade-in">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-primary" id="duracionModalTitulo">Selecciona duración</h2>
+        <button onclick="cerrarModalDuracion()" class="text-gray-400 hover:text-gray-700 text-4xl leading-none">&times;</button>
       </div>
-      <div id="duracionModalOpciones">
-        <!-- Se genera dinamicamente -->
+      <div id="duracionModalOpciones" class="space-y-3">
+        <!-- Opciones generadas dinámicamente -->
       </div>
     </div>
   </div>
 
-  <!-- Modal Confirmacion -->
-  <div id="confirmacionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
-      <h2 class="text-3xl font-bold text-primary mb-6">Confirmar Reserva</h2>
-      <div id="confirmacionDetalle" class="space-y-2 mb-6"></div>
+  <!-- Modal Confirmación con QR -->
+  <div id="confirmacionModal" class="hidden fixed inset-0 bg-black bg-opacity-60 modal-overlay flex items-center justify-center p-4 z-50">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 fade-in">
+      <h2 class="text-3xl font-bold text-primary mb-6 text-center">Confirmar Reserva</h2>
+      <div id="confirmacionDetalle" class="mb-6"></div>
+      <div id="qrContainer" class="mb-6"></div>
       <div class="flex gap-4">
         <button onclick="confirmarReserva()" 
-          class="flex-1 py-3 btn-primary rounded-xl font-bold hover:shadow-lg">
+          class="flex-1 py-4 btn-primary rounded-xl font-bold text-lg hover:shadow-xl transition">
           Confirmar
         </button>
         <button onclick="cerrarModal()" 
-          class="flex-1 py-3 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700">
+          class="flex-1 py-4 bg-gray-600 text-white rounded-xl font-bold text-lg hover:bg-gray-700 transition">
           Cancelar
         </button>
       </div>
@@ -235,11 +259,11 @@
   </div>
 
   <!-- Modal Mis Reservas -->
-  <div id="misReservasModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8">
-      <div class="flex justify-between items-center mb-6">
+  <div id="misReservasModal" class="hidden fixed inset-0 bg-black bg-opacity-60 modal-overlay flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 fade-in">
+      <div class="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4 border-b">
         <h2 class="text-3xl font-bold text-primary">Mis Reservas</h2>
-        <button onclick="cerrarMisReservas()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+        <button onclick="cerrarMisReservas()" class="text-gray-400 hover:text-gray-700 text-4xl leading-none">&times;</button>
       </div>
       <div id="misReservasList"></div>
     </div>
