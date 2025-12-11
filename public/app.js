@@ -107,7 +107,7 @@ function generarCalendarioCarrusel() {
   return dias;
 }
 
-// RENDERIZAR CALENDARIO CARRUSEL
+// RENDERIZAR CALENDARIO CARRUSEL - MÁS PEQUEÑO, GRID 7 COLUMNAS
 function renderizarCalendarioCarrusel() {
   const dias = generarCalendarioCarrusel();
   const container = document.getElementById('calendarioCarrusel');
@@ -115,19 +115,19 @@ function renderizarCalendarioCarrusel() {
   if (!container) return;
   
   container.innerHTML = `
-    <div class="flex gap-3 overflow-x-auto pb-2 px-1" style="scrollbar-width: thin;">
+    <div class="grid grid-cols-7 gap-1">
       ${dias.map(d => `
         <button 
           onclick="seleccionarFechaCarrusel('${d.fechaStr}')"
-          class="flex-shrink-0 w-20 p-3 rounded-xl border-2 transition-all ${
+          class="p-2 rounded-lg border-2 transition-all ${
             state.selectedDate === d.fechaStr 
-              ? 'bg-primary border-primary text-white shadow-lg scale-105' 
+              ? 'bg-primary border-primary text-white shadow-lg' 
               : 'bg-white border-gray-200 hover:border-primary hover:shadow-md'
           }">
           <p class="text-xs font-semibold ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-gray-500'}">${d.nombreDia}</p>
-          <p class="text-2xl font-bold my-1">${d.dia}</p>
+          <p class="text-lg font-bold my-0.5">${d.dia}</p>
           <p class="text-xs ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-gray-600'}">${d.mes}</p>
-          ${d.esHoy ? `<p class="text-xs font-bold mt-1 ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-primary'}">Hoy</p>` : ''}
+          ${d.esHoy ? `<p class="text-xs font-bold ${state.selectedDate === d.fechaStr ? 'text-white' : 'text-primary'}">Hoy</p>` : ''}
         </button>
       `).join('')}
     </div>
@@ -306,7 +306,7 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS PLAYTOMIC - CORREGIDA
+// RENDERIZAR HORARIOS PLAYTOMIC - LETRAS MÁS PEQUEÑAS
 function renderizarHorariosPlaytomic() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
@@ -368,15 +368,15 @@ function renderizarHorariosPlaytomic() {
       }
 
       const div = document.createElement('div');
-      div.className = `w-24 h-20 p-2 rounded-xl border-2 ${badgeClass} flex flex-col items-center justify-center cursor-pointer transition-all m-1 shadow-sm hover:shadow-md`;
+      div.className = `p-2 rounded-lg border-2 ${badgeClass} flex flex-col items-center justify-center cursor-pointer transition-all shadow-sm hover:shadow-md`;
       
       if (!esPasado && disponible1h.disponible) {
         div.onclick = () => mostrarModalDuraciones(hora);
       }
 
       div.innerHTML = `
-        <div class="text-lg font-bold">${convertirA12h(hora)}</div>
-        <div class="text-sm mt-1">${badgeText}</div>
+        <div class="text-sm font-bold">${convertirA12h(hora)}</div>
+        <div class="text-xs mt-1">${badgeText}</div>
       `;
 
       container.appendChild(div);
@@ -416,7 +416,7 @@ function calcularHoraFin(horaInicio, duracion) {
   return `${horaFin.toString().padStart(2, '0')}:${minutosFin.toString().padStart(2, '0')}`;
 }
 
-// MOSTRAR MODAL DURACIONES - CORREGIDA
+// MOSTRAR MODAL DURACIONES
 function mostrarModalDuraciones(hora) {
   state.selectedTime = hora;
   const [h, m] = hora.split(':').map(Number);
@@ -469,7 +469,7 @@ function mostrarModalDuraciones(hora) {
   document.getElementById('duracionModal').classList.remove('hidden');
 }
 
-// CALCULAR PRECIO PRECISO - CORREGIDA PARA EVITAR LOOP INFINITO
+// CALCULAR PRECIO PRECISO
 function calcularPrecioPreciso(horaInicio, duracion) {
   const [h, m] = horaInicio.split(':').map(Number);
   const horaDecimal = h + (m / 60);
@@ -477,25 +477,20 @@ function calcularPrecioPreciso(horaInicio, duracion) {
   
   let precioBase = 0;
   
-  // Calcular fin de reserva
   const horaFin = horaDecimal + duracion;
   
-  // Si toda la reserva es antes del cambio de tarifa
   if (horaFin <= cambioTarifa) {
     precioBase = state.config.precios.horaDia * duracion;
   } 
-  // Si toda la reserva es después del cambio de tarifa
   else if (horaDecimal >= cambioTarifa) {
     precioBase = state.config.precios.horaNoche * duracion;
   } 
-  // Si la reserva cruza el cambio de tarifa
   else {
     const horasAntes = cambioTarifa - horaDecimal;
     const horasDespues = duracion - horasAntes;
     precioBase = (horasAntes * state.config.precios.horaDia) + (horasDespues * state.config.precios.horaNoche);
   }
   
-  // Aplicar promoción
   let descuento = 0;
   const promo = state.promociones.find(p => {
     if (!p.activa || p.fecha !== state.selectedDate) return false;
@@ -562,7 +557,7 @@ function cerrarModalDuracion() {
   document.getElementById('duracionModal').classList.add('hidden');
 }
 
-// CONFIRMAR RESERVA - CORREGIDA
+// CONFIRMAR RESERVA
 async function confirmarReserva() {
   await cargarHoraServidor();
   
@@ -607,7 +602,7 @@ async function confirmarReserva() {
   }
 }
 
-// FORMATEAR FECHA - CORREGIDA
+// FORMATEAR FECHA
 function formatearFecha(fechaStr) {
   if (fechaStr.includes('T')) {
     fechaStr = fechaStr.split('T')[0];
@@ -651,7 +646,7 @@ function compartirReservaWhatsApp(reserva) {
   window.open(urlWhatsApp, '_blank');
 }
 
-// MIS RESERVAS - CORREGIDA
+// MIS RESERVAS
 async function verMisReservas() {
   try {
     const res = await fetch(API_BASE + '/api/mis-reservas', {

@@ -200,9 +200,9 @@
         </button>
       </div>
 
-      <!-- CALENDARIO CARRUSEL -->
-      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-bold mb-4 text-primary">Selecciona Fecha</h2>
+      <!-- CALENDARIO CARRUSEL - MÁS PEQUEÑO -->
+      <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <h2 class="text-xl font-bold mb-3 text-primary">Selecciona Fecha</h2>
         <div id="calendarioCarrusel">
           <!-- Se genera dinamicamente -->
         </div>
@@ -227,14 +227,14 @@
         </div>
       </div>
 
-      <!-- Horarios Disponibles con Switch de Filtro -->
-      <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-2xl font-bold text-primary">Horarios Disponibles</h2>
+      <!-- Horarios Disponibles con Switch de Filtro - 4x4 EN MOBILE -->
+      <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-xl font-bold text-primary">Horarios</h2>
           
           <!-- SWITCH FILTRO -->
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-semibold text-gray-700">Solo disponibles</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-gray-700">Solo disponibles</span>
             <input 
               type="checkbox" 
               id="switchDisponibles" 
@@ -244,9 +244,9 @@
           </div>
         </div>
         
-        <p class="text-sm text-gray-600 mb-4">Selecciona un horario</p>
+        <p class="text-xs text-gray-600 mb-3">Selecciona un horario</p>
         
-        <div id="horariosDisponibles" class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-2">
+        <div id="horariosDisponibles" class="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
           <!-- Se genera dinamicamente -->
         </div>
       </div>
