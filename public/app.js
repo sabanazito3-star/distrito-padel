@@ -306,7 +306,7 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS PLAYTOMIC - LETRAS MÁS PEQUEÑAS
+// RENDERIZAR HORARIOS PLAYTOMIC - CORREGIDO
 function renderizarHorariosPlaytomic() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
@@ -348,18 +348,18 @@ function renderizarHorariosPlaytomic() {
       });
 
       let badgeClass = 'bg-gray-200 text-gray-600 cursor-not-allowed';
-      let badgeText = 'Pasado';
+      let badgeText = '';
       
       if (!esPasado) {
         if (!disponible1h.disponible) {
           badgeClass = 'bg-red-100 border-red-400 text-red-800';
-          badgeText = 'Ocupado';
+          badgeText = '';
         } else if (promoActiva) {
           badgeClass = 'bg-yellow-100 border-yellow-400 text-yellow-800 font-bold';
           badgeText = `${promoActiva.descuento}% OFF`;
         } else {
-          badgeClass = 'bg-green-100 border-green-400 text-green-800 hover:shadow-lg hover:scale-105';
-          badgeText = 'Disponible';
+          badgeClass = 'bg-white border-gray-300 text-gray-800 hover:shadow-lg hover:border-primary';
+          badgeText = '';
         }
       }
 
@@ -368,15 +368,15 @@ function renderizarHorariosPlaytomic() {
       }
 
       const div = document.createElement('div');
-      div.className = `p-2 rounded-lg border-2 ${badgeClass} flex flex-col items-center justify-center cursor-pointer transition-all shadow-sm hover:shadow-md`;
+      div.className = `h-16 p-2 rounded-lg border-2 ${badgeClass} flex flex-col items-center justify-center cursor-pointer transition-all shadow-sm hover:shadow-md`;
       
       if (!esPasado && disponible1h.disponible) {
         div.onclick = () => mostrarModalDuraciones(hora);
       }
 
       div.innerHTML = `
-        <div class="text-sm font-bold">${convertirA12h(hora)}</div>
-        <div class="text-xs mt-1">${badgeText}</div>
+        <div class="text-sm font-bold whitespace-nowrap">${convertirA12h(hora)}</div>
+        ${badgeText ? `<div class="text-xs mt-0.5">${badgeText}</div>` : ''}
       `;
 
       container.appendChild(div);
