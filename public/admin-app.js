@@ -1,23 +1,22 @@
-// admin-app.js - Panel Admin v7.5 - Fix Reservas Activas + Filtro Fechas Total
+// admin-app.js - Panel Admin v7.6 - Con Sistema de Torneos
 const API_BASE = '';
-
 
 let state = {
   reservas: [],
   promociones: [],
   bloqueos: [],
   usuarios: [],
+  torneos: [],
   config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } },
   token: localStorage.getItem('admin_token') || '',
   currentTab: 'reservas',
   autoUpdateInterval: null,
   mostrarCanceladas: false,
   mostrarPasadas: false,
-  filtroTotalTipo: 'todo', // 'todo', 'fecha', 'rango'
+  filtroTotalTipo: 'todo',
   filtroFechaInicio: '',
   filtroFechaFin: ''
 };
-
 
 window.onload = () => {
   if (state.token) {
@@ -28,7 +27,6 @@ window.onload = () => {
   cargarConfigActual();
 };
 
-
 async function api(path, opts = {}) {
   opts.headers = opts.headers || {};
   if (state.token) opts.headers['x-admin-token'] = state.token;
@@ -38,7 +36,6 @@ async function api(path, opts = {}) {
   return json;
 }
 
-
 async function loadAllData() {
   const token = document.getElementById('adminToken').value.trim();
   if (!token) {
@@ -46,43 +43,40 @@ async function loadAllData() {
     return;
   }
 
-
   state.token = token;
   localStorage.setItem('admin_token', token);
 
-
   try {
-    const [reservas, usuarios, promociones, bloqueos] = await Promise.all([
+    const [reservas, usuarios, promociones, bloqueos, torneos] = await Promise.all([
       api('/reservas'),
       api('/usuarios'),
       fetch(API_BASE + '/api/promociones').then(r => r.json()),
-      fetch(API_BASE + '/api/bloqueos').then(r => r.json())
+      fetch(API_BASE + '/api/bloqueos').then(r => r.json()),
+      api('/torneos').catch(() => [])
     ]);
-
 
     state.reservas = reservas;
     state.usuarios = usuarios;
     state.promociones = promociones;
     state.bloqueos = bloqueos;
-
+    state.torneos = torneos;
 
     renderReservas();
     renderPromociones();
     renderBloqueos();
+    renderTorneos();
     updateStats();
     updateLastUpdate();
-
 
     if (!state.autoUpdateInterval) {
       startAutoUpdate();
     }
   } catch (err) {
-    alert('Error: ' + (err.msg || 'Token inválido'));
+    alert('Error: ' + (err.msg || 'Token invalido'));
     localStorage.removeItem('admin_token');
     stopAutoUpdate();
   }
 }
-
 
 function startAutoUpdate() {
   stopAutoUpdate();
@@ -102,7 +96,6 @@ function startAutoUpdate() {
   }, 10000);
 }
 
-
 function stopAutoUpdate() {
   if (state.autoUpdateInterval) {
     clearInterval(state.autoUpdateInterval);
@@ -110,28 +103,24 @@ function stopAutoUpdate() {
   }
 }
 
-
 function updateLastUpdate() {
   const now = new Date();
   const time = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  document.getElementById('lastUpdate').textContent = 'Última actualización: ' + time;
+  document.getElementById('lastUpdate').textContent = 'Ultima actualizacion: ' + time;
 }
-
 
 function showTab(tab) {
   state.currentTab = tab;
-
 
   document.getElementById('contentReservas').classList.add('hidden');
   document.getElementById('contentPromociones').classList.add('hidden');
   document.getElementById('contentBloqueos').classList.add('hidden');
   document.getElementById('contentConfig').classList.add('hidden');
-
+  document.getElementById('contentTorneos').classList.add('hidden');
 
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.classList.remove('active');
   });
-
 
   if (tab === 'reservas') {
     document.getElementById('contentReservas').classList.remove('hidden');
@@ -145,9 +134,11 @@ function showTab(tab) {
   } else if (tab === 'config') {
     document.getElementById('contentConfig').classList.remove('hidden');
     document.getElementById('tabConfig').classList.add('active');
+  } else if (tab === 'torneos') {
+    document.getElementById('contentTorneos').classList.remove('hidden');
+    document.getElementById('tabTorneos').classList.add('active');
   }
 }
-
 
 function convertirA12h(hora24) {
   if (!hora24) return '';
@@ -156,7 +147,6 @@ function convertirA12h(hora24) {
   const hora12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${hora12}:${String(m).padStart(2, '0')} ${periodo}`;
 }
-
 
 function formatearFecha(fechaISO) {
   if (!fechaISO) return '';
@@ -168,11 +158,9 @@ function formatearFecha(fechaISO) {
   return `${dia}/${mes}/${año}`;
 }
 
-
 function renderReservas() {
   const tbody = document.getElementById('reservasTable');
   tbody.innerHTML = '';
-
 
   if (state.reservas.length === 0) {
     tbody.innerHTML = `
@@ -185,14 +173,11 @@ function renderReservas() {
     return;
   }
 
-
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-
   const activas = state.reservas.filter(r => r.estado !== 'cancelada');
   const canceladas = state.reservas.filter(r => r.estado === 'cancelada');
-
 
   const obtenerFechaISO = (fechaStr) => {
     if (!fechaStr) return null;
@@ -202,7 +187,6 @@ function renderReservas() {
     return fechaStr;
   };
 
-
   const futuras = activas.filter(r => {
     const fechaISO = obtenerFechaISO(r.fecha);
     if (!fechaISO) return false;
@@ -211,7 +195,6 @@ function renderReservas() {
     return fechaReserva >= hoy;
   });
 
-
   const pasadas = activas.filter(r => {
     const fechaISO = obtenerFechaISO(r.fecha);
     if (!fechaISO) return false;
@@ -219,7 +202,6 @@ function renderReservas() {
     fechaReserva.setHours(0, 0, 0, 0);
     return fechaReserva < hoy;
   });
-
 
   const agruparPorFecha = (reservas) => {
     const grupos = {};
@@ -232,10 +214,8 @@ function renderReservas() {
     return grupos;
   };
 
-
   const reservasFuturas = agruparPorFecha(futuras);
   const reservasPasadas = agruparPorFecha(pasadas);
-
 
   const header = document.createElement('tr');
   header.innerHTML = `
@@ -257,7 +237,6 @@ function renderReservas() {
   `;
   tbody.appendChild(header);
 
-
   setTimeout(() => {
     const checkPasadas = document.getElementById('checkMostrarPasadas');
     const checkCanceladas = document.getElementById('checkMostrarCanceladas');
@@ -277,10 +256,8 @@ function renderReservas() {
     }
   }, 0);
 
-
   const renderGrupo = (grupos, titulo, colorClass) => {
     const fechasOrdenadas = Object.keys(grupos).sort((a, b) => new Date(b) - new Date(a));
-
 
     fechasOrdenadas.forEach(fechaISO => {
       const reservasDelDia = grupos[fechaISO].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
@@ -300,17 +277,14 @@ function renderReservas() {
       `;
       tbody.appendChild(headerDia);
 
-
       reservasDelDia.forEach(r => {
         const tr = document.createElement('tr');
         const canceladaClass = r.estado === 'cancelada' ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
         tr.className = `${canceladaClass} border-b`;
 
-
         const pagadoClass = r.pagado ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
         const pagadoText = r.pagado ? 'Pagada' : 'Pendiente';
         const metodoPagoTexto = r.metodo_pago ? `<br><span class="text-xs text-gray-600">${r.metodo_pago}</span>` : '';
-
 
         const tieneDescuento = r.descuento && r.descuento > 0;
         const precioHTML = tieneDescuento ? `
@@ -325,7 +299,6 @@ function renderReservas() {
           <p class="text-lg font-bold text-green-600">$${r.precio}</p>
         `;
 
-
         const botonesHTML = r.estado === 'cancelada' 
           ? '<span class="text-xs text-gray-500 italic">Cancelada</span>'
           : `
@@ -336,7 +309,6 @@ function renderReservas() {
               Cancelar
             </button>
           `;
-
 
         tr.innerHTML = `
           <td class="px-4 py-3 font-bold text-blue-600">${convertirA12h(r.hora_inicio)}</td>
@@ -362,14 +334,11 @@ function renderReservas() {
     });
   };
 
-
-  renderGrupo(reservasFuturas, 'Hoy y Próximas Reservas', 'green');
-
+  renderGrupo(reservasFuturas, 'Hoy y Proximas Reservas', 'green');
 
   if (state.mostrarPasadas) {
     renderGrupo(reservasPasadas, 'Reservas Anteriores', 'gray');
   }
-
 
   if (state.mostrarCanceladas) {
     const canceladasAgrupadas = agruparPorFecha(canceladas);
@@ -377,10 +346,9 @@ function renderReservas() {
   }
 }
 
-
 async function marcarPagada(id, pagar) {
   if (!pagar) {
-    if (!confirm('¿Marcar como PENDIENTE de pago?')) return;
+    if (!confirm('Marcar como PENDIENTE de pago?')) return;
     
     try {
       const response = await fetch(API_BASE + `/api/admin/reservas/${id}/marcar-pendiente`, {
@@ -390,7 +358,6 @@ async function marcarPagada(id, pagar) {
           'x-admin-token': state.token
         }
       });
-
 
       if (response.ok) {
         alert('Marcada como pendiente');
@@ -405,14 +372,12 @@ async function marcarPagada(id, pagar) {
     return;
   }
 
-
-  const metodo = prompt('Método de pago:\n1 = Efectivo\n2 = Tarjeta\n3 = Transferencia');
+  const metodo = prompt('Metodo de pago:\n1 = Efectivo\n2 = Tarjeta\n3 = Transferencia');
   
   if (!metodo || !['1','2','3'].includes(metodo)) {
-    alert('Método inválido. Debe ser 1, 2 o 3');
+    alert('Metodo invalido. Debe ser 1, 2 o 3');
     return;
   }
-
 
   try {
     const response = await fetch(API_BASE + `/api/admin/reservas/${id}/pagar`, {
@@ -423,7 +388,6 @@ async function marcarPagada(id, pagar) {
       },
       body: JSON.stringify({ metodoPago: metodo })
     });
-
 
     if (response.ok) {
       alert('Reserva marcada como pagada');
@@ -437,9 +401,8 @@ async function marcarPagada(id, pagar) {
   }
 }
 
-
 async function cancelarReserva(id) {
-  if (!confirm('¿Cancelar esta reserva?\n\nSe mantendrá el registro pero se liberará el horario.')) return;
+  if (!confirm('Cancelar esta reserva?\n\nSe mantendra el registro pero se liberara el horario.')) return;
   
   try {
     const response = await fetch(API_BASE + `/api/admin/reservas/${id}/cancelar`, {
@@ -449,7 +412,6 @@ async function cancelarReserva(id) {
         'x-admin-token': state.token
       }
     });
-
 
     if (response.ok) {
       alert('Reserva cancelada exitosamente');
@@ -463,7 +425,6 @@ async function cancelarReserva(id) {
   }
 }
 
-
 async function crearReservaManual() {
   const fecha = document.getElementById('manualFecha').value;
   const hora = document.getElementById('manualHora').value;
@@ -473,12 +434,10 @@ async function crearReservaManual() {
   const telefono = document.getElementById('manualTelefono').value.trim();
   const email = document.getElementById('manualEmail').value.trim() || `manual${Date.now()}@sistema.local`;
 
-
   if (!fecha || !hora || !nombre || !telefono) {
     alert('Completa todos los campos obligatorios');
     return;
   }
-
 
   try {
     await fetch(API_BASE + '/api/admin/reservas/manual', {
@@ -500,20 +459,16 @@ async function crearReservaManual() {
   }
 }
 
-
 function renderPromociones() {
   const container = document.getElementById('promocionesLista');
   if (!container) return;
 
-
   container.innerHTML = '';
-
 
   if (state.promociones.length === 0) {
     container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay promociones activas</p>';
     return;
   }
-
 
   state.promociones.forEach(p => {
     const div = document.createElement('div');
@@ -538,19 +493,16 @@ function renderPromociones() {
   });
 }
 
-
 async function crearPromocion() {
   const fecha = document.getElementById('promoFecha').value || null;
   const descuento = parseInt(document.getElementById('promoDescuento').value);
   const horaInicio = document.getElementById('promoHoraInicio').value || null;
   const horaFin = document.getElementById('promoHoraFin').value || null;
 
-
   if (!descuento || descuento < 1 || descuento > 100) {
-    alert('Ingresa un descuento válido entre 1 y 100%');
+    alert('Ingresa un descuento valido entre 1 y 100%');
     return;
   }
-
 
   try {
     await fetch(API_BASE + '/api/admin/promociones', {
@@ -562,49 +514,42 @@ async function crearPromocion() {
       body: JSON.stringify({ fecha, descuento, horaInicio, horaFin })
     });
 
-
-    alert('Promoción creada');
+    alert('Promocion creada');
     document.getElementById('promoFecha').value = '';
     document.getElementById('promoDescuento').value = '';
     document.getElementById('promoHoraInicio').value = '';
     document.getElementById('promoHoraFin').value = '';
     await loadAllData();
   } catch (err) {
-    alert('Error al crear promoción');
+    alert('Error al crear promocion');
   }
 }
 
-
 async function eliminarPromocion(id) {
-  if (!confirm('¿Eliminar esta promoción?')) return;
-
+  if (!confirm('Eliminar esta promocion?')) return;
 
   try {
     await fetch(API_BASE + `/api/admin/promociones/${id}`, {
       method: 'DELETE',
       headers: { 'x-admin-token': state.token }
     });
-    alert('Promoción eliminada');
+    alert('Promocion eliminada');
     await loadAllData();
   } catch (err) {
     alert('Error al eliminar');
   }
 }
 
-
 function renderBloqueos() {
   const container = document.getElementById('bloqueosLista');
   if (!container) return;
 
-
   container.innerHTML = '';
-
 
   if (state.bloqueos.length === 0) {
     container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay bloqueos registrados</p>';
     return;
   }
-
 
   state.bloqueos.forEach(b => {
     const div = document.createElement('div');
@@ -630,7 +575,6 @@ function renderBloqueos() {
   });
 }
 
-
 async function crearBloqueo() {
   const fecha = document.getElementById('bloqueoFecha').value;
   const cancha = document.getElementById('bloqueoCancha').value ? parseInt(document.getElementById('bloqueoCancha').value) : null;
@@ -638,12 +582,10 @@ async function crearBloqueo() {
   const horaFin = document.getElementById('bloqueoHoraFin').value || null;
   const motivo = document.getElementById('bloqueoMotivo').value.trim();
 
-
   if (!fecha) {
     alert('Ingresa una fecha');
     return;
   }
-
 
   try {
     await fetch(API_BASE + '/api/admin/bloqueos', {
@@ -654,7 +596,6 @@ async function crearBloqueo() {
       },
       body: JSON.stringify({ fecha, cancha, horaInicio, horaFin, motivo })
     });
-
 
     alert('Bloqueo creado');
     document.getElementById('bloqueoFecha').value = '';
@@ -668,10 +609,8 @@ async function crearBloqueo() {
   }
 }
 
-
 async function eliminarBloqueo(id) {
-  if (!confirm('¿Eliminar este bloqueo?')) return;
-
+  if (!confirm('Eliminar este bloqueo?')) return;
 
   try {
     await fetch(API_BASE + `/api/admin/bloqueos/${id}`, {
@@ -685,6 +624,173 @@ async function eliminarBloqueo(id) {
   }
 }
 
+function renderTorneos() {
+  const container = document.getElementById('torneosLista');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!state.torneos || state.torneos.length === 0) {
+    container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay torneos registrados</p>';
+    return;
+  }
+
+  state.torneos.forEach(t => {
+    const participantes = Array.isArray(t.participantes) ? t.participantes.length : 0;
+    const estadoBadge = {
+      'abierto': '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">Abierto</span>',
+      'cerrado': '<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-bold">Cerrado</span>',
+      'en-curso': '<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">En Curso</span>',
+      'finalizado': '<span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-bold">Finalizado</span>'
+    };
+
+    const div = document.createElement('div');
+    div.className = 'bg-white border-2 border-gray-200 rounded-xl p-4 mb-4';
+    
+    div.innerHTML = `
+      <div class="flex justify-between items-start mb-3">
+        <div class="flex-1">
+          <h3 class="font-bold text-xl text-gray-800">${t.nombre}</h3>
+          <p class="text-sm text-gray-600">${t.tipo}</p>
+          <p class="text-sm text-gray-700 mt-2">${t.descripcion || ''}</p>
+        </div>
+        ${estadoBadge[t.estado] || ''}
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+        <div><span class="text-gray-600">Fecha inicio:</span> <span class="font-bold">${formatearFecha(t.fecha_inicio)}</span></div>
+        <div><span class="text-gray-600">Inscripcion:</span> <span class="font-bold">$${t.precio_inscripcion}</span></div>
+        <div><span class="text-gray-600">Participantes:</span> <span class="font-bold">${participantes}/${t.max_participantes}</span></div>
+        <div><span class="text-gray-600">Estado:</span> <span class="font-bold">${t.estado}</span></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="editarTorneo('${t.id}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+          Editar
+        </button>
+        <button onclick="verParticipantesTorneo('${t.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
+          Ver Participantes
+        </button>
+        <button onclick="eliminarTorneo('${t.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+          Eliminar
+        </button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+async function crearTorneo() {
+  const nombre = document.getElementById('torneoNombre').value.trim();
+  const tipo = document.getElementById('torneoTipo').value;
+  const descripcion = document.getElementById('torneoDescripcion').value.trim();
+  const fecha_inicio = document.getElementById('torneoFechaInicio').value;
+  const fecha_fin = document.getElementById('torneoFechaFin').value || null;
+  const hora_inicio = document.getElementById('torneoHoraInicio').value || null;
+  const precio_inscripcion = parseInt(document.getElementById('torneoPrecio').value) || 0;
+  const max_participantes = parseInt(document.getElementById('torneoMaxParticipantes').value) || 16;
+  const min_participantes = parseInt(document.getElementById('torneoMinParticipantes').value) || 4;
+  const imagen = document.getElementById('torneoImagen').value.trim() || null;
+  const reglas = document.getElementById('torneoReglas').value.trim() || null;
+  const premios = document.getElementById('torneoPremios').value.trim() || null;
+
+  if (!nombre || !tipo || !fecha_inicio) {
+    alert('Completa los campos obligatorios');
+    return;
+  }
+
+  try {
+    await fetch(API_BASE + '/api/admin/torneos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({
+        nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
+        precio_inscripcion, max_participantes, min_participantes,
+        imagen, reglas, premios
+      })
+    });
+
+    alert('Torneo creado exitosamente');
+    document.getElementById('torneoNombre').value = '';
+    document.getElementById('torneoDescripcion').value = '';
+    document.getElementById('torneoFechaInicio').value = '';
+    document.getElementById('torneoFechaFin').value = '';
+    document.getElementById('torneoHoraInicio').value = '';
+    document.getElementById('torneoPrecio').value = '0';
+    document.getElementById('torneoImagen').value = '';
+    document.getElementById('torneoReglas').value = '';
+    document.getElementById('torneoPremios').value = '';
+    await loadAllData();
+  } catch (err) {
+    alert('Error al crear torneo');
+  }
+}
+
+async function editarTorneo(id) {
+  const torneo = state.torneos.find(t => t.id === id);
+  if (!torneo) return;
+
+  const nuevoEstado = prompt('Nuevo estado (abierto/cerrado/en-curso/finalizado):', torneo.estado);
+  if (!nuevoEstado || !['abierto','cerrado','en-curso','finalizado'].includes(nuevoEstado)) {
+    alert('Estado invalido');
+    return;
+  }
+
+  try {
+    await fetch(API_BASE + `/api/admin/torneos/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ estado: nuevoEstado })
+    });
+
+    alert('Torneo actualizado');
+    await loadAllData();
+  } catch (err) {
+    alert('Error al actualizar torneo');
+  }
+}
+
+async function eliminarTorneo(id) {
+  if (!confirm('Eliminar este torneo? Se eliminaran todos los participantes y partidos asociados.')) return;
+
+  try {
+    await fetch(API_BASE + `/api/admin/torneos/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': state.token }
+    });
+    alert('Torneo eliminado');
+    await loadAllData();
+  } catch (err) {
+    alert('Error al eliminar torneo');
+  }
+}
+
+async function verParticipantesTorneo(torneoId) {
+  try {
+    const response = await fetch(API_BASE + `/api/torneos/${torneoId}`);
+    const torneo = await response.json();
+
+    if (!torneo.participantes || torneo.participantes.length === 0) {
+      alert('No hay participantes inscritos');
+      return;
+    }
+
+    let mensaje = `Participantes de ${torneo.nombre}:\n\n`;
+    torneo.participantes.forEach((p, i) => {
+      mensaje += `${i + 1}. ${p.nombre} (${p.email})`;
+      if (p.pareja_nombre) mensaje += ` + ${p.pareja_nombre}`;
+      mensaje += ` - ${p.pagado ? 'PAGADO' : 'PENDIENTE'}\n`;
+    });
+
+    alert(mensaje);
+  } catch (err) {
+    alert('Error al cargar participantes');
+  }
+}
 
 async function cargarConfigActual() {
   try {
@@ -692,11 +798,9 @@ async function cargarConfigActual() {
     const config = await res.json();
     state.config = config;
 
-
     document.getElementById('configPrecioDia').value = config.precios.horaDia;
     document.getElementById('configPrecioNoche').value = config.precios.horaNoche;
     document.getElementById('configCambioTarifa').value = config.precios.cambioTarifa;
-
 
     document.getElementById('displayPrecioDia').textContent = '$' + config.precios.horaDia;
     document.getElementById('displayPrecioNoche').textContent = '$' + config.precios.horaNoche;
@@ -706,18 +810,15 @@ async function cargarConfigActual() {
   }
 }
 
-
 async function actualizarPrecios() {
   const horaDia = parseFloat(document.getElementById('configPrecioDia').value);
   const horaNoche = parseFloat(document.getElementById('configPrecioNoche').value);
   const cambioTarifa = parseInt(document.getElementById('configCambioTarifa').value);
 
-
   if (!horaDia || !horaNoche || !cambioTarifa) {
     alert('Completa todos los campos');
     return;
   }
-
 
   try {
     await fetch(API_BASE + '/api/admin/config', {
@@ -729,7 +830,6 @@ async function actualizarPrecios() {
       body: JSON.stringify({ horaDia, horaNoche, cambioTarifa })
     });
 
-
     alert('Precios actualizados');
     await cargarConfigActual();
   } catch (err) {
@@ -737,11 +837,9 @@ async function actualizarPrecios() {
   }
 }
 
-
 async function descargarReporteDia() {
   const fecha = prompt('Fecha (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
   if (!fecha) return;
-
 
   try {
     const response = await fetch(API_BASE + `/api/admin/reporte/dia?fecha=${fecha}`, {
@@ -759,12 +857,10 @@ async function descargarReporteDia() {
   }
 }
 
-
 async function descargarReporteMes() {
   const mes = prompt('Mes (1-12):', new Date().getMonth() + 1);
   const año = prompt('Año:', new Date().getFullYear());
   if (!mes || !año) return;
-
 
   try {
     const response = await fetch(API_BASE + `/api/admin/reporte/mes?mes=${mes}&año=${año}`, {
@@ -781,7 +877,6 @@ async function descargarReporteMes() {
     alert('Error al descargar reporte');
   }
 }
-
 
 function cambiarFiltroTotal() {
   const tipo = document.getElementById('filtroTotalTipo').value;
@@ -802,7 +897,6 @@ function cambiarFiltroTotal() {
   updateStats();
 }
 
-
 function aplicarFiltroFecha() {
   const fecha = document.getElementById('filtroFechaUnica').value;
   if (!fecha) {
@@ -813,7 +907,6 @@ function aplicarFiltroFecha() {
   state.filtroFechaFin = fecha;
   updateStats();
 }
-
 
 function aplicarFiltroRango() {
   const inicio = document.getElementById('filtroFechaInicio').value;
@@ -833,7 +926,6 @@ function aplicarFiltroRango() {
   state.filtroFechaFin = fin;
   updateStats();
 }
-
 
 function updateStats() {
   const hoy = new Date();
@@ -873,7 +965,6 @@ function updateStats() {
   const totalReservas = reservasActivas.length;
   const totalRecaudado = reservasParaTotal.reduce((sum, r) => sum + parseFloat(r.precio || 0), 0);
   const pendientesPago = reservasActivas.filter(r => !r.pagado).length;
-
 
   document.getElementById('statReservas').textContent = totalReservas;
   document.getElementById('statRecaudado').textContent = '$' + Math.round(totalRecaudado).toLocaleString();

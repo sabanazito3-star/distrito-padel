@@ -1,4 +1,4 @@
-// app.js - Frontend Distrito Padel v8.0 - Calendario Carrusel + Filtros + WhatsApp + Auto-refresh
+// app.js - Frontend Distrito Padel v8.1 - Con Sistema de Torneos
 const API_BASE = '';
 
 let state = {
@@ -12,9 +12,11 @@ let state = {
   reservas: [],
   promociones: [],
   bloqueos: [],
+  torneos: [],
   config: { precios: { horaDia: 250, horaNoche: 400, cambioTarifa: 16 } },
   serverTime: null,
-  filtroSoloDisponibles: false
+  filtroSoloDisponibles: false,
+  filtroTorneoEstado: 'todos'
 };
 
 let autoRefreshInterval = null;
@@ -107,7 +109,7 @@ function generarCalendarioCarrusel() {
   return dias;
 }
 
-// RENDERIZAR CALENDARIO CARRUSEL - MÁS PEQUEÑO, GRID 7 COLUMNAS
+// RENDERIZAR CALENDARIO CARRUSEL
 function renderizarCalendarioCarrusel() {
   const dias = generarCalendarioCarrusel();
   const container = document.getElementById('calendarioCarrusel');
@@ -306,7 +308,7 @@ async function cargarDisponibilidad() {
   }
 }
 
-// RENDERIZAR HORARIOS PLAYTOMIC - CORREGIDO
+// RENDERIZAR HORARIOS PLAYTOMIC
 function renderizarHorariosPlaytomic() {
   const container = document.getElementById('horariosDisponibles');
   container.innerHTML = '';
@@ -728,4 +730,306 @@ async function cancelarReserva(id) {
   } catch (err) {
     alert('Error de conexion');
   }
+}
+
+// TORNEOS
+
+async function verTorneos() {
+  try {
+    const res = await fetch(API_BASE + '/api/torneos');
+    state.torneos = await res.json();
+    renderizarTorneos();
+    document.getElementById('torneosModal').classList.remove('hidden');
+  } catch (err) {
+    alert('Error al cargar torneos');
+  }
+}
+
+function filtrarTorneos(estado) {
+  state.filtroTorneoEstado = estado;
+  
+  document.querySelectorAll('.filtro-torneo-btn').forEach(btn => {
+    btn.classList.remove('active', 'bg-primary', 'text-white');
+    btn.classList.add('bg-gray-200', 'text-gray-700');
+  });
+  event.target.classList.add('active', 'bg-primary', 'text-white');
+  event.target.classList.remove('bg-gray-200', 'text-gray-700');
+  
+  renderizarTorneos();
+}
+
+function renderizarTorneos() {
+  const container = document.getElementById('torneosList');
+  container.innerHTML = '';
+  
+  let torneosFiltrados = state.torneos;
+  if (state.filtroTorneoEstado !== 'todos') {
+    torneosFiltrados = state.torneos.filter(t => t.estado === state.filtroTorneoEstado);
+  }
+  
+  if (torneosFiltrados.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-500 py-8 col-span-2">No hay torneos disponibles</p>';
+    return;
+  }
+  
+  torneosFiltrados.forEach(torneo => {
+    const participantes = Array.isArray(torneo.participantes) ? torneo.participantes : [];
+    const div = document.createElement('div');
+    div.className = 'bg-white rounded-xl border-2 border-gray-200 hover:border-primary transition-all cursor-pointer overflow-hidden';
+    div.onclick = () => verDetalleTorneo(torneo.id);
+    
+    const estadoBadge = {
+      'abierto': '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">Inscripciones Abiertas</span>',
+      'cerrado': '<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-bold">Inscripciones Cerradas</span>',
+      'en-curso': '<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">En Curso</span>',
+      'finalizado': '<span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-bold">Finalizado</span>'
+    };
+    
+    const tipoNombre = {
+      'relampago': 'Relampago',
+      'rey-pala': 'Rey de la Pala',
+      'eliminacion': 'Eliminacion',
+      'americano': 'Americano'
+    };
+    
+    div.innerHTML = `
+      ${torneo.imagen ? `<img src="${torneo.imagen}" class="w-full h-40 object-cover" alt="${torneo.nombre}">` : ''}
+      <div class="p-6">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-xl font-bold text-primary">${torneo.nombre}</h3>
+          ${estadoBadge[torneo.estado] || ''}
+        </div>
+        <p class="text-sm text-gray-600 mb-2">${tipoNombre[torneo.tipo] || torneo.tipo}</p>
+        <p class="text-sm text-gray-700 mb-4 line-clamp-2">${torneo.descripcion}</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-600">Fecha:</span>
+            <span class="font-bold">${formatearFecha(torneo.fecha_inicio)}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">Inscripcion:</span>
+            <span class="font-bold">$${torneo.precio_inscripcion}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">Participantes:</span>
+            <span class="font-bold">${participantes.length}/${torneo.max_participantes}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    container.appendChild(div);
+  });
+}
+
+async function verDetalleTorneo(torneoId) {
+  try {
+    const res = await fetch(API_BASE + `/api/torneos/${torneoId}`);
+    const torneo = await res.json();
+    
+    const participantes = Array.isArray(torneo.participantes) ? torneo.participantes : [];
+    const partidos = Array.isArray(torneo.partidos) ? torneo.partidos : [];
+    
+    document.getElementById('detalleTorneoTitulo').textContent = torneo.nombre;
+    
+    const yaInscrito = participantes.some(p => p.email === state.email);
+    
+    const tipoNombre = {
+      'relampago': 'Relampago',
+      'rey-pala': 'Rey de la Pala',
+      'eliminacion': 'Eliminacion',
+      'americano': 'Americano'
+    };
+    
+    const html = `
+      <div class="space-y-6">
+        ${torneo.imagen ? `<img src="${torneo.imagen}" class="w-full h-64 object-cover rounded-xl" alt="${torneo.nombre}">` : ''}
+        
+        <div class="bg-gray-50 p-6 rounded-xl space-y-3">
+          <div class="flex justify-between">
+            <span class="text-gray-700 font-semibold">Tipo:</span>
+            <span class="font-bold">${tipoNombre[torneo.tipo] || torneo.tipo}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-700 font-semibold">Fecha Inicio:</span>
+            <span class="font-bold">${formatearFecha(torneo.fecha_inicio)} - ${torneo.hora_inicio || 'Por definir'}</span>
+          </div>
+          ${torneo.fecha_fin ? `
+          <div class="flex justify-between">
+            <span class="text-gray-700 font-semibold">Fecha Final:</span>
+            <span class="font-bold">${formatearFecha(torneo.fecha_fin)}</span>
+          </div>
+          ` : ''}
+          <div class="flex justify-between">
+            <span class="text-gray-700 font-semibold">Inscripcion:</span>
+            <span class="font-bold text-green-600">$${torneo.precio_inscripcion}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-700 font-semibold">Participantes:</span>
+            <span class="font-bold">${participantes.length}/${torneo.max_participantes}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-700 font-semibold">Minimo:</span>
+            <span class="font-bold">${torneo.min_participantes} participantes</span>
+          </div>
+        </div>
+        
+        <div>
+          <h3 class="text-xl font-bold mb-2 text-primary">Descripcion</h3>
+          <p class="text-gray-700">${torneo.descripcion}</p>
+        </div>
+        
+        ${torneo.reglas ? `
+          <div>
+            <h3 class="text-xl font-bold mb-2 text-primary">Reglas</h3>
+            <p class="text-gray-700 whitespace-pre-line">${torneo.reglas}</p>
+          </div>
+        ` : ''}
+        
+        ${torneo.premios ? `
+          <div>
+            <h3 class="text-xl font-bold mb-2 text-primary">Premios</h3>
+            <p class="text-gray-700 whitespace-pre-line">${torneo.premios}</p>
+          </div>
+        ` : ''}
+        
+        <div>
+          <h3 class="text-xl font-bold mb-3 text-primary">Participantes Inscritos (${participantes.length})</h3>
+          ${participantes.length > 0 ? `
+            <div class="space-y-2 max-h-64 overflow-y-auto">
+              ${participantes.map(p => `
+                <div class="bg-white p-3 rounded-lg border flex justify-between items-center">
+                  <div>
+                    <p class="font-bold">${p.nombre}</p>
+                    ${p.pareja_nombre ? `<p class="text-sm text-gray-600">Pareja: ${p.pareja_nombre}</p>` : ''}
+                  </div>
+                  ${!p.pagado ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Pendiente pago</span>' : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : '<p class="text-gray-500 text-center py-4">Aun no hay participantes inscritos</p>'}
+        </div>
+        
+        ${torneo.estado === 'abierto' ? `
+          ${!yaInscrito ? `
+            <div>
+              <h3 class="text-xl font-bold mb-3 text-primary">Inscribirse al Torneo</h3>
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-bold mb-2">Email de tu pareja (opcional)</label>
+                  <input type="email" id="parejaEmail" placeholder="email@ejemplo.com" 
+                    class="w-full px-4 py-3 border-2 rounded-xl focus:border-primary focus:outline-none">
+                  <p class="text-xs text-gray-500 mt-1">Deja vacio si vas sin pareja o si el formato del torneo es individual</p>
+                </div>
+                <button onclick="inscribirseTorneo('${torneo.id}')" 
+                  class="w-full py-3 btn-primary rounded-xl font-bold hover:shadow-lg">
+                  Inscribirme - $${torneo.precio_inscripcion}
+                </button>
+              </div>
+            </div>
+          ` : `
+            <div class="bg-green-50 border-2 border-green-400 p-4 rounded-xl text-center">
+              <p class="text-green-800 font-bold mb-3">Ya estas inscrito en este torneo</p>
+              <button onclick="cancelarInscripcionTorneo('${torneo.id}')" 
+                class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold">
+                Cancelar Inscripcion
+              </button>
+            </div>
+          `}
+        ` : ''}
+        
+        ${partidos.length > 0 ? `
+          <div>
+            <h3 class="text-xl font-bold mb-3 text-primary">Fixture / Resultados</h3>
+            <div class="space-y-3">
+              ${partidos.map((partido, idx) => `
+                <div class="bg-white p-4 rounded-lg border">
+                  <p class="text-sm font-bold text-gray-600 mb-2">${partido.ronda}</p>
+                  <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                      <p class="font-bold">${Array.isArray(partido.equipo1) ? partido.equipo1.join(' / ') : ''}</p>
+                      <p class="text-sm text-gray-600">vs</p>
+                      <p class="font-bold">${Array.isArray(partido.equipo2) ? partido.equipo2.join(' / ') : ''}</p>
+                    </div>
+                    <div class="text-right">
+                      ${partido.resultado ? `
+                        <p class="text-lg font-bold text-green-600">${partido.resultado}</p>
+                        <p class="text-xs text-gray-600">Ganador: ${partido.ganador}</p>
+                      ` : `
+                        <p class="text-sm text-gray-500">${formatearFecha(partido.fecha)} ${partido.hora}</p>
+                        <p class="text-xs text-gray-500">Cancha ${partido.cancha}</p>
+                      `}
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+    
+    document.getElementById('detalleTorneoContenido').innerHTML = html;
+    document.getElementById('detalleTorneoModal').classList.remove('hidden');
+  } catch (err) {
+    alert('Error al cargar detalle del torneo');
+  }
+}
+
+async function inscribirseTorneo(torneoId) {
+  const parejaEmail = document.getElementById('parejaEmail').value.trim();
+  
+  try {
+    const res = await fetch(API_BASE + `/api/torneos/${torneoId}/inscribir`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-token': state.token
+      },
+      body: JSON.stringify({ pareja_email: parejaEmail || null })
+    });
+    
+    const data = await res.json();
+    
+    if (data.ok) {
+      alert('Inscripcion exitosa! Te contactaremos para el pago.');
+      cerrarDetalleTorneo();
+      verTorneos();
+    } else {
+      alert(data.msg || 'Error al inscribirse');
+    }
+  } catch (err) {
+    alert('Error de conexion');
+  }
+}
+
+async function cancelarInscripcionTorneo(torneoId) {
+  if (!confirm('Cancelar tu inscripcion a este torneo?')) return;
+  
+  try {
+    const res = await fetch(API_BASE + `/api/torneos/${torneoId}/inscripcion`, {
+      method: 'DELETE',
+      headers: { 'x-token': state.token }
+    });
+    
+    const data = await res.json();
+    
+    if (data.ok) {
+      alert('Inscripcion cancelada');
+      cerrarDetalleTorneo();
+      verTorneos();
+    } else {
+      alert(data.msg || 'Error al cancelar');
+    }
+  } catch (err) {
+    alert('Error de conexion');
+  }
+}
+
+function cerrarTorneos() {
+  document.getElementById('torneosModal').classList.add('hidden');
+}
+
+function cerrarDetalleTorneo() {
+  document.getElementById('detalleTorneoModal').classList.add('hidden');
 }

@@ -19,7 +19,7 @@
                     <img src="logo.jpg" alt="Distrito Padel" class="w-16 h-16 rounded-xl">
                     <div>
                         <h1 class="text-3xl font-bold">Panel Admin</h1>
-                        <p class="text-sm text-green-100">Distrito Padel v7.5</p>
+                        <p class="text-sm text-green-100">Distrito Padel v7.6</p>
                     </div>
                 </div>
                 <div id="lastUpdate" class="text-sm text-green-100"></div>
@@ -62,7 +62,7 @@
                     <div class="mt-4 space-y-2">
                         <select id="filtroTotalTipo" onchange="cambiarFiltroTotal()" class="w-full px-3 py-2 rounded-lg text-gray-800 text-sm">
                             <option value="todo">Todo el tiempo</option>
-                            <option value="fecha">Fecha específica</option>
+                            <option value="fecha">Fecha especifica</option>
                             <option value="rango">Rango de fechas</option>
                         </select>
                         
@@ -101,7 +101,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button onclick="descargarReporteDia()" 
                             class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 hover:shadow-lg">
-                        Descargar Cierre de Día
+                        Descargar Cierre de Dia
                     </button>
                     <button onclick="descargarReporteMes()" 
                             class="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 hover:shadow-lg">
@@ -124,19 +124,23 @@
                         class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
                     Bloqueos
                 </button>
+                <button id="tabTorneos" onclick="showTab('torneos')" 
+                        class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
+                    Torneos
+                </button>
                 <button id="tabConfig" onclick="showTab('config')" 
                         class="tab-button flex-1 px-6 py-3 rounded-lg font-bold whitespace-nowrap">
-                    Configuración
+                    Configuracion
                 </button>
             </div>
 
             <!-- CONTENIDO RESERVAS -->
             <div id="contentReservas" class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-2xl font-bold mb-6 text-green-600">Gestión de Reservas</h2>
+                <h2 class="text-2xl font-bold mb-6 text-green-600">Gestion de Reservas</h2>
 
                 <!-- Formulario Crear Reserva Manual -->
                 <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual (Teléfono/WhatsApp)</h3>
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Reserva Manual (Telefono/WhatsApp)</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha *</label>
@@ -147,7 +151,7 @@
                             <input type="time" id="manualHora" class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-2">Duración *</label>
+                            <label class="block text-sm font-bold mb-2">Duracion *</label>
                             <select id="manualDuracion" class="w-full px-4 py-2 border-2 rounded-lg">
                                 <option value="1">1 hora</option>
                                 <option value="1.5">1.5 horas</option>
@@ -164,11 +168,11 @@
                         </div>
                         <div>
                             <label class="block text-sm font-bold mb-2">Nombre Cliente *</label>
-                            <input type="text" id="manualNombre" placeholder="Ej: Juan Pérez" 
+                            <input type="text" id="manualNombre" placeholder="Ej: Juan Perez" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-2">Teléfono *</label>
+                            <label class="block text-sm font-bold mb-2">Telefono *</label>
                             <input type="tel" id="manualTelefono" placeholder="5551234567" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
@@ -205,10 +209,10 @@
 
             <!-- CONTENIDO PROMOCIONES -->
             <div id="contentPromociones" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-purple-600">Gestión de Promociones</h2>
+                <h2 class="text-2xl font-bold mb-6 text-purple-600">Gestion de Promociones</h2>
 
                 <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-purple-700">Crear Nueva Promoción</h3>
+                    <h3 class="text-xl font-bold mb-4 text-purple-700">Crear Nueva Promocion</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Fecha (opcional)</label>
@@ -230,13 +234,13 @@
                     </div>
                     <p class="text-sm text-gray-600 mb-4">
                         <strong>Ejemplos:</strong><br>
-                        • Sin fecha + Sin horas = Promoción permanente<br>
-                        • Con fecha + Sin horas = Promoción ese día completo<br>
-                        • Con fecha + Con horas = Promoción en rango horario
+                        - Sin fecha + Sin horas = Promocion permanente<br>
+                        - Con fecha + Sin horas = Promocion ese dia completo<br>
+                        - Con fecha + Con horas = Promocion en rango horario
                     </p>
                     <button onclick="crearPromocion()" 
                             class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700">
-                        Crear Promoción
+                        Crear Promocion
                     </button>
                 </div>
 
@@ -245,7 +249,7 @@
 
             <!-- CONTENIDO BLOQUEOS -->
             <div id="contentBloqueos" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-red-600">Gestión de Bloqueos</h2>
+                <h2 class="text-2xl font-bold mb-6 text-red-600">Gestion de Bloqueos</h2>
 
                 <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6">
                     <h3 class="text-xl font-bold mb-4 text-red-700">Crear Nuevo Bloqueo</h3>
@@ -286,15 +290,93 @@
                 <div id="bloqueosLista"></div>
             </div>
 
-            <!-- CONTENIDO CONFIGURACIÓN -->
+            <!-- CONTENIDO TORNEOS -->
+            <div id="contentTorneos" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-blue-600">Gestion de Torneos</h2>
+
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Nuevo Torneo</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Nombre *</label>
+                            <input type="text" id="torneoNombre" placeholder="Ej: Torneo Verano 2025" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Tipo *</label>
+                            <select id="torneoTipo" class="w-full px-4 py-2 border-2 rounded-lg">
+                                <option value="relampago">Relampago</option>
+                                <option value="rey-pala">Rey de la Pala</option>
+                                <option value="eliminacion">Eliminacion</option>
+                                <option value="americano">Americano</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">Descripcion</label>
+                            <textarea id="torneoDescripcion" rows="2" placeholder="Descripcion del torneo"
+                                   class="w-full px-4 py-2 border-2 rounded-lg"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha Inicio *</label>
+                            <input type="date" id="torneoFechaInicio" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Fecha Fin (opcional)</label>
+                            <input type="date" id="torneoFechaFin" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Hora Inicio (opcional)</label>
+                            <input type="time" id="torneoHoraInicio" class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Precio Inscripcion</label>
+                            <input type="number" id="torneoPrecio" value="0" min="0" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Max Participantes</label>
+                            <input type="number" id="torneoMaxParticipantes" value="16" min="4" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Min Participantes</label>
+                            <input type="number" id="torneoMinParticipantes" value="4" min="2" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">URL Imagen (opcional)</label>
+                            <input type="text" id="torneoImagen" placeholder="https://ejemplo.com/imagen.jpg" 
+                                   class="w-full px-4 py-2 border-2 rounded-lg">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">Reglas (opcional)</label>
+                            <textarea id="torneoReglas" rows="3" placeholder="Reglas del torneo"
+                                   class="w-full px-4 py-2 border-2 rounded-lg"></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold mb-2">Premios (opcional)</label>
+                            <textarea id="torneoPremios" rows="2" placeholder="Premios del torneo"
+                                   class="w-full px-4 py-2 border-2 rounded-lg"></textarea>
+                        </div>
+                    </div>
+                    <button onclick="crearTorneo()" 
+                            class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">
+                        Crear Torneo
+                    </button>
+                </div>
+
+                <div id="torneosLista"></div>
+            </div>
+
+            <!-- CONTENIDO CONFIGURACION -->
             <div id="contentConfig" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-gray-600">Configuración de Precios</h2>
+                <h2 class="text-2xl font-bold mb-6 text-gray-600">Configuracion de Precios</h2>
 
                 <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-xl p-6">
-                    <h3 class="text-xl font-bold mb-4 text-orange-700">Gestión de Tarifas</h3>
+                    <h3 class="text-xl font-bold mb-4 text-orange-700">Gestion de Tarifas</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label class="block text-sm font-bold mb-2">Precio Hora Día ($)</label>
+                            <label class="block text-sm font-bold mb-2">Precio Hora Dia ($)</label>
                             <input type="number" id="configPrecioDia" min="0" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
@@ -316,10 +398,10 @@
                 </div>
 
                 <div id="configActual" class="mt-6 bg-gray-50 rounded-xl p-6">
-                    <h3 class="font-bold text-gray-700 mb-3">Configuración Actual</h3>
+                    <h3 class="font-bold text-gray-700 mb-3">Configuracion Actual</h3>
                     <div class="grid grid-cols-3 gap-4 text-sm">
                         <div class="bg-white rounded-lg p-3 border">
-                            <p class="text-gray-600">Precio Día</p>
+                            <p class="text-gray-600">Precio Dia</p>
                             <p class="text-2xl font-bold text-green-600" id="displayPrecioDia">$250</p>
                         </div>
                         <div class="bg-white rounded-lg p-3 border">

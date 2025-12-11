@@ -52,7 +52,6 @@
       background: linear-gradient(to right, #1e3621, #26422b);
     }
 
-    /* Estilos para el switch */
     input[type="checkbox"].toggle-switch {
       appearance: none;
       width: 3rem;
@@ -85,13 +84,24 @@
       transform: translateX(1.5rem);
     }
 
-    /* Ocultar scrollbar pero mantener funcionalidad */
     .scrollbar-hide::-webkit-scrollbar {
       display: none;
     }
     .scrollbar-hide {
       -ms-overflow-style: none;
       scrollbar-width: none;
+    }
+
+    .filtro-torneo-btn.active {
+      background-color: var(--primary-green);
+      color: white;
+    }
+
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
   </style>
   
@@ -192,15 +202,19 @@
 
     <!-- Contenido -->
     <div class="container mx-auto px-4 py-8">
-      <!-- Boton Mis Reservas -->
+      <!-- Botones Mis Reservas y Torneos -->
       <div class="flex gap-4 mb-6">
         <button onclick="verMisReservas()" 
           class="flex-1 py-3 bg-[#ffedbb] text-gray-800 rounded-xl font-bold hover:bg-[#ffd98a] transition">
           Mis Reservas
         </button>
+        <button onclick="verTorneos()" 
+          class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition">
+          Torneos
+        </button>
       </div>
 
-      <!-- CALENDARIO CARRUSEL - MÁS PEQUEÑO -->
+      <!-- CALENDARIO CARRUSEL -->
       <div class="bg-white rounded-xl shadow-md p-4 mb-6">
         <h2 class="text-xl font-bold mb-3 text-primary">Selecciona Fecha</h2>
         <div id="calendarioCarrusel">
@@ -227,12 +241,11 @@
         </div>
       </div>
 
-      <!-- Horarios Disponibles con Switch de Filtro - 4x4 EN MOBILE -->
+      <!-- Horarios Disponibles con Switch de Filtro -->
       <div class="bg-white rounded-xl shadow-md p-4 mb-6">
         <div class="flex justify-between items-center mb-3">
           <h2 class="text-xl font-bold text-primary">Horarios</h2>
           
-          <!-- SWITCH FILTRO -->
           <div class="flex items-center gap-2">
             <span class="text-xs font-semibold text-gray-700">Solo disponibles</span>
             <input 
@@ -292,6 +305,49 @@
         <button onclick="cerrarMisReservas()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
       </div>
       <div id="misReservasList"></div>
+    </div>
+  </div>
+
+  <!-- Modal Torneos -->
+  <div id="torneosModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto p-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-primary">Torneos Disponibles</h2>
+        <button onclick="cerrarTorneos()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+      </div>
+
+      <!-- Filtros de Estado -->
+      <div class="flex flex-wrap gap-2 mb-6">
+        <button onclick="filtrarTorneos('todos')" class="filtro-torneo-btn active px-4 py-2 bg-primary text-white rounded-lg font-bold transition">
+          Todos
+        </button>
+        <button onclick="filtrarTorneos('abierto')" class="filtro-torneo-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold transition">
+          Abiertos
+        </button>
+        <button onclick="filtrarTorneos('en-curso')" class="filtro-torneo-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold transition">
+          En Curso
+        </button>
+        <button onclick="filtrarTorneos('finalizado')" class="filtro-torneo-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold transition">
+          Finalizados
+        </button>
+      </div>
+
+      <div id="torneosList" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Se genera dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalle Torneo -->
+  <div id="detalleTorneoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-primary" id="detalleTorneoTitulo">Detalle del Torneo</h2>
+        <button onclick="cerrarDetalleTorneo()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+      </div>
+      <div id="detalleTorneoContenido">
+        <!-- Se genera dinamicamente -->
+      </div>
     </div>
   </div>
 
