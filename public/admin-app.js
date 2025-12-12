@@ -889,17 +889,14 @@ async function verDetallesTorneo(id) {
 }
 
 // ==========================================
-// GESTIÓN DE PARTICIPANTES - VERSIÓN VISUAL
+// GESTIÓN DE PARTICIPANTES - VERSIÓN FUNCIONAL
 // ==========================================
 
 async function gestionarParticipantes(torneoId) {
     try {
         const response = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
         const torneo = await response.json();
-        
-        // Mostrar modal visual
         mostrarModalParticipantes(torneoId, torneo);
-        
     } catch (err) {
         alert('❌ Error al cargar participantes');
         console.error(err);
@@ -907,7 +904,6 @@ async function gestionarParticipantes(torneoId) {
 }
 
 function mostrarModalParticipantes(torneoId, torneo) {
-    // Eliminar modal anterior
     const modalAnterior = document.getElementById('modalParticipantes');
     if (modalAnterior) modalAnterior.remove();
     
@@ -918,7 +914,6 @@ function mostrarModalParticipantes(torneoId, torneo) {
     
     let contenidoHTML = `
         <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <!-- Header -->
             <div class="sticky top-0 bg-gradient-to-r from-green-600 to-green-800 text-white p-6 rounded-t-2xl shadow-lg z-10">
                 <div class="flex justify-between items-center">
                     <div>
@@ -933,93 +928,94 @@ function mostrarModalParticipantes(torneoId, torneo) {
                 </div>
             </div>
             
-            <!-- Contenido -->
             <div class="p-6">
-                <!-- Formulario agregar participante -->
                 <div class="bg-green-50 border-2 border-green-200 rounded-xl p-5 mb-6">
                     <h3 class="text-lg font-bold text-green-700 mb-4">➕ Agregar Participante</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-xs font-bold mb-1">Email *</label>
-                            <input type="email" id="part-email-${torneoId}" placeholder="jugador@email.com" 
-                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            <label class="block text-sm font-bold mb-2">👤 Nombre del Jugador *</label>
+                            <input type="text" id="part-nombre-${torneoId}" placeholder="Ej: Juan Pérez" 
+                                class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none text-lg">
                         </div>
+                        
                         <div>
-                            <label class="block text-xs font-bold mb-1">Nombre Completo *</label>
-                            <input type="text" id="part-nombre-${torneoId}" placeholder="Juan Pérez" 
-                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            <label class="block text-sm font-bold mb-2">👥 Nombre de la Pareja (Opcional)</label>
+                            <input type="text" id="part-parejanombre-${torneoId}" placeholder="Ej: María López" 
+                                class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold mb-1">Email Pareja (Opcional)</label>
-                            <input type="email" id="part-parejaemail-${torneoId}" placeholder="pareja@email.com" 
-                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold mb-1">Nombre Pareja (Opcional)</label>
-                            <input type="text" id="part-parejanombre-${torneoId}" placeholder="María López" 
-                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold mb-1">Nivel</label>
-                            <select id="part-nivel-${torneoId}" class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
-                                <option value="principiante">Principiante</option>
-                                <option value="intermedio" selected>Intermedio</option>
-                                <option value="avanzado">Avanzado</option>
-                                <option value="profesional">Profesional</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="part-pagado-${torneoId}" class="w-5 h-5">
-                                <span class="text-sm font-bold">¿Ya pagó?</span>
-                            </label>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-bold mb-2">🎯 Nivel</label>
+                                <select id="part-nivel-${torneoId}" class="w-full px-3 py-2 border-2 rounded-lg">
+                                    <option value="principiante">Principiante</option>
+                                    <option value="intermedio" selected>Intermedio</option>
+                                    <option value="avanzado">Avanzado</option>
+                                    <option value="profesional">Profesional</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-center">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="part-pagado-${torneoId}" class="w-5 h-5">
+                                    <span class="text-sm font-bold">💰 ¿Ya pagó?</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="agregarParticipanteVisual(${torneoId})" 
-                        class="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors">
+                    
+                    <button onclick="agregarParticipanteVisual('${torneoId}')" 
+                        class="w-full mt-4 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-bold text-lg hover:from-green-700 hover:to-green-800 transition-all">
                         ➕ Agregar Participante
                     </button>
                 </div>
                 
-                <!-- Lista de participantes -->
                 <div class="space-y-3">
-                    <h3 class="text-lg font-bold text-gray-700 mb-3">
-                        📋 Participantes Inscritos (${torneo.participantes ? torneo.participantes.length : 0}/${torneo.maxparticipantes})
-                    </h3>
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-bold text-gray-700">📋 Participantes Inscritos</h3>
+                        <span class="px-4 py-2 bg-blue-100 text-blue-700 font-bold rounded-full">
+                            ${torneo.participantes ? torneo.participantes.length : 0} / ${torneo.maxparticipantes}
+                        </span>
+                    </div>
     `;
     
     if (!torneo.participantes || torneo.participantes.length === 0) {
         contenidoHTML += `
-            <div class="text-center py-8 text-gray-500">
+            <div class="text-center py-12 text-gray-400">
                 <p class="text-lg">No hay participantes inscritos</p>
             </div>
         `;
     } else {
-        torneo.participantes.forEach(p => {
+        torneo.participantes.forEach((p, index) => {
             const pagadoBadge = p.pagado 
-                ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">✅ PAGADO</span>'
-                : '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">⏳ PENDIENTE</span>';
+                ? '<span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">✅ PAGADO</span>'
+                : '<span class="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">⏳ PENDIENTE</span>';
+            
+            const nombreSafe = (p.nombre || '').replace(/'/g, "\\'");
             
             contenidoHTML += `
-                <div class="bg-white border-2 border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all">
                     <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <p class="font-bold text-lg text-gray-800">${p.nombre}</p>
-                            <p class="text-sm text-gray-600">${p.email}</p>
-                            ${p.parejanombre ? `<p class="text-sm text-purple-600 mt-1">👥 Pareja: ${p.parejanombre}</p>` : ''}
-                            <div class="flex gap-2 mt-2">
-                                <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">${p.nivel || 'intermedio'}</span>
-                                ${pagadoBadge}
+                        <div class="flex items-start gap-3 flex-1">
+                            <div class="bg-blue-100 text-blue-700 font-bold rounded-full w-10 h-10 flex items-center justify-center">
+                                ${index + 1}
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-bold text-xl text-gray-800">${p.nombre}</p>
+                                ${p.parejanombre ? `<p class="text-sm text-purple-600 mt-1">👥 Pareja: ${p.parejanombre}</p>` : ''}
+                                <div class="flex gap-2 mt-2">
+                                    <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">${p.nivel || 'intermedio'}</span>
+                                    ${pagadoBadge}
+                                </div>
                             </div>
                         </div>
                         <div class="flex flex-col gap-2">
                             ${!p.pagado ? `
-                                <button onclick="marcarPagadoParticipanteVisual(${torneoId}, '${p.email}')" 
+                                <button onclick="marcarPagadoParticipanteVisual('${torneoId}', '${p.email}')" 
                                     class="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">
-                                    💰 Marcar Pagado
+                                    💰 Pagado
                                 </button>
                             ` : ''}
-                            <button onclick="eliminarParticipanteVisual(${torneoId}, '${p.email}', '${p.nombre}')" 
+                            <button onclick="eliminarParticipanteVisual('${torneoId}', '${p.email}', '${nombreSafe}')" 
                                 class="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">
                                 🗑️ Eliminar
                             </button>
@@ -1030,12 +1026,7 @@ function mostrarModalParticipantes(torneoId, torneo) {
         });
     }
     
-    contenidoHTML += `
-                </div>
-            </div>
-        </div>
-    `;
-    
+    contenidoHTML += `</div></div></div>`;
     modal.innerHTML = contenidoHTML;
     document.body.appendChild(modal);
 }
@@ -1046,17 +1037,22 @@ function cerrarModalParticipantes() {
 }
 
 async function agregarParticipanteVisual(torneoId) {
-    const email = document.getElementById(`part-email-${torneoId}`).value.trim();
     const nombre = document.getElementById(`part-nombre-${torneoId}`).value.trim();
-    const parejaemail = document.getElementById(`part-parejaemail-${torneoId}`).value.trim() || null;
     const parejanombre = document.getElementById(`part-parejanombre-${torneoId}`).value.trim() || null;
     const nivel = document.getElementById(`part-nivel-${torneoId}`).value;
     const pagado = document.getElementById(`part-pagado-${torneoId}`).checked;
     
-    if (!email || !nombre) {
-        alert('⚠️ Email y Nombre son obligatorios');
+    if (!nombre) {
+        alert('⚠️ El nombre es obligatorio');
         return;
     }
+    
+    // Generar email único automático
+    const timestamp = Date.now();
+    const emailAuto = `${nombre.toLowerCase().replace(/\s+/g, '').substring(0, 10)}${timestamp}@torneo.local`;
+    const parejaemail = parejanombre ? `${parejanombre.toLowerCase().replace(/\s+/g, '').substring(0, 10)}${timestamp}p@torneo.local` : null;
+    
+    console.log('Enviando participante:', { email: emailAuto, nombre, parejaemail, parejanombre, nivel, pagado });
     
     try {
         const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participante`, {
@@ -1065,15 +1061,27 @@ async function agregarParticipanteVisual(torneoId) {
                 'Content-Type': 'application/json',
                 'x-admin-token': state.token
             },
-            body: JSON.stringify({ email, nombre, parejaemail, parejanombre, nivel, pagado })
+            body: JSON.stringify({ 
+                email: emailAuto,
+                nombre, 
+                parejaemail, 
+                parejanombre, 
+                nivel, 
+                pagado 
+            })
         });
         
         const data = await response.json();
+        console.log('Respuesta del servidor:', data);
+        
         if (data.ok) {
+            document.getElementById(`part-nombre-${torneoId}`).value = '';
+            document.getElementById(`part-parejanombre-${torneoId}`).value = '';
+            document.getElementById(`part-pagado-${torneoId}`).checked = false;
+            
             alert('✅ Participante agregado exitosamente');
-            cerrarModalParticipantes();
+            
             await loadAllData();
-            // Reabrir modal actualizado
             const resp = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
             const torneo = await resp.json();
             mostrarModalParticipantes(torneoId, torneo);
@@ -1081,14 +1089,14 @@ async function agregarParticipanteVisual(torneoId) {
             alert('❌ Error: ' + (data.msg || 'No se pudo agregar'));
         }
     } catch (err) {
-        alert('❌ Error al agregar participante');
-        console.error(err);
+        alert('❌ Error de conexión. Revisa la consola (F12)');
+        console.error('Error completo:', err);
     }
 }
 
 async function marcarPagadoParticipanteVisual(torneoId, email) {
     try {
-        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participantes/${email}/pagar`, {
+        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participantes/${encodeURIComponent(email)}/pagar`, {
             method: 'PATCH',
             headers: { 'x-admin-token': state.token }
         });
@@ -1096,7 +1104,6 @@ async function marcarPagadoParticipanteVisual(torneoId, email) {
         const data = await response.json();
         if (data.ok) {
             alert('✅ Marcado como pagado');
-            cerrarModalParticipantes();
             await loadAllData();
             const resp = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
             const torneo = await resp.json();
@@ -1114,7 +1121,7 @@ async function eliminarParticipanteVisual(torneoId, email, nombre) {
     if (!confirm(`¿Eliminar a ${nombre}?`)) return;
     
     try {
-        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participante/${email}`, {
+        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participante/${encodeURIComponent(email)}`, {
             method: 'DELETE',
             headers: { 'x-admin-token': state.token }
         });
@@ -1122,7 +1129,6 @@ async function eliminarParticipanteVisual(torneoId, email, nombre) {
         const data = await response.json();
         if (data.ok) {
             alert('✅ Participante eliminado');
-            cerrarModalParticipantes();
             await loadAllData();
             const resp = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
             const torneo = await resp.json();
