@@ -563,31 +563,42 @@ export default function(app) {
           partidos = generarBracketEliminacionSimple(parts);
       }
 
-      // Insertar partidos en BD
-      for (const p of partidos) {
-        const eq1 = Array.isArray(p.equipo1) ? p.equipo1 : [p.equipo1];
-        const eq2 = Array.isArray(p.equipo2) ? p.equipo2 : [p.equipo2];
-
-        await pool.query(`
-          INSERT INTO torneo_partidos (
-            torneo_id, ronda, numero_partido,
-            equipo1_email1, equipo1_email2,
-            equipo2_email1, equipo2_email2,
-            equipo1_nombres, equipo2_nombres,
-            estado
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
-        `, [
-          req.params.id,
-          p.ronda,
-          p.numero_partido,
-          eq1[0]?.email || null,
-          eq1[1]?.email || null,
-          eq2[0]?.email || null,
-          eq2[1]?.email || null,
-          eq1.map(e => e.nombre),
-          eq2.map(e => e.nombre)
-        ]);
-      }
+// Insertar partidos en BD
+for (const p of partidos) {
+    // Convertir a array si no lo es
+    const eq1 = Array.isArray(p.equipo1) ? p.equipo1 : [p.equipo1];
+    const eq2 = Array.isArray(p.equipo2) ? p.equipo2 : [p.equipo2];
+    
+    // Filtrar nulls y extraer datos
+    const eq1Clean = eq1.filter(e => e && e.nombre);
+    const eq2Clean = eq2.filter(e => e && e.nombre);
+    
+    // Arrays de nombres
+    const eq1Nombres = eq1Clean.map(e => e.nombre);
+    const eq2Nombres = eq2Clean.map(e => e.nombre);
+    
+    console.log(`Insertando partido ${p.numeropartido}:`, {
+        eq1Nombres,
+        eq2Nombres
+    });
+    
+    await pool.query(`
+        INSERT INTO torneopartidos (torneoid, ronda, numeropartido, 
+            equipo1email1, equipo1email2, equipo2email1, equipo2email2, 
+            equipo1nombres, equipo2nombres, estado)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
+    `, [
+        req.params.id,
+        p.ronda,
+        p.numeropartido,
+        eq1Clean[0]?.email || null,
+        eq1Clean[1]?.email || null,
+        eq2Clean[0]?.email || null,
+        eq2Clean[1]?.email || null,
+        eq1Nombres,  // Ya es un array
+        eq2Nombres   // Ya es un array
+    ]);
+}
 
       // Marcar bracket como generado
       await pool.query(
