@@ -888,124 +888,252 @@ async function verDetallesTorneo(id) {
   }
 }
 
+// ==========================================
+// GESTIÓN DE PARTICIPANTES - VERSIÓN VISUAL
+// ==========================================
+
 async function gestionarParticipantes(torneoId) {
-  try {
-    const response = await fetch(API_BASE + `/api/torneos/${torneoId}`);
-    const torneo = await response.json();
+    try {
+        const response = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
+        const torneo = await response.json();
+        
+        // Mostrar modal visual
+        mostrarModalParticipantes(torneoId, torneo);
+        
+    } catch (err) {
+        alert('❌ Error al cargar participantes');
+        console.error(err);
+    }
+}
 
+function mostrarModalParticipantes(torneoId, torneo) {
+    // Eliminar modal anterior
+    const modalAnterior = document.getElementById('modalParticipantes');
+    if (modalAnterior) modalAnterior.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'modalParticipantes';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.style.overflowY = 'auto';
+    
+    let contenidoHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="sticky top-0 bg-gradient-to-r from-green-600 to-green-800 text-white p-6 rounded-t-2xl shadow-lg z-10">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold">👥 ${torneo.nombre}</h2>
+                        <p class="text-sm text-green-200 mt-1">Gestión de Participantes</p>
+                    </div>
+                    <button onclick="cerrarModalParticipantes()" class="text-white hover:bg-white hover:text-green-600 rounded-full p-2 transition-all">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Contenido -->
+            <div class="p-6">
+                <!-- Formulario agregar participante -->
+                <div class="bg-green-50 border-2 border-green-200 rounded-xl p-5 mb-6">
+                    <h3 class="text-lg font-bold text-green-700 mb-4">➕ Agregar Participante</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Email *</label>
+                            <input type="email" id="part-email-${torneoId}" placeholder="jugador@email.com" 
+                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Nombre Completo *</label>
+                            <input type="text" id="part-nombre-${torneoId}" placeholder="Juan Pérez" 
+                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Email Pareja (Opcional)</label>
+                            <input type="email" id="part-parejaemail-${torneoId}" placeholder="pareja@email.com" 
+                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Nombre Pareja (Opcional)</label>
+                            <input type="text" id="part-parejanombre-${torneoId}" placeholder="María López" 
+                                class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Nivel</label>
+                            <select id="part-nivel-${torneoId}" class="w-full px-3 py-2 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                <option value="principiante">Principiante</option>
+                                <option value="intermedio" selected>Intermedio</option>
+                                <option value="avanzado">Avanzado</option>
+                                <option value="profesional">Profesional</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="part-pagado-${torneoId}" class="w-5 h-5">
+                                <span class="text-sm font-bold">¿Ya pagó?</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button onclick="agregarParticipanteVisual(${torneoId})" 
+                        class="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors">
+                        ➕ Agregar Participante
+                    </button>
+                </div>
+                
+                <!-- Lista de participantes -->
+                <div class="space-y-3">
+                    <h3 class="text-lg font-bold text-gray-700 mb-3">
+                        📋 Participantes Inscritos (${torneo.participantes ? torneo.participantes.length : 0}/${torneo.maxparticipantes})
+                    </h3>
+    `;
+    
     if (!torneo.participantes || torneo.participantes.length === 0) {
-      const agregar = confirm('No hay participantes.\n\n¿Agregar uno manualmente?');
-      if (agregar) {
-        await agregarParticipanteManual(torneoId);
-      }
-      return;
+        contenidoHTML += `
+            <div class="text-center py-8 text-gray-500">
+                <p class="text-lg">No hay participantes inscritos</p>
+            </div>
+        `;
+    } else {
+        torneo.participantes.forEach(p => {
+            const pagadoBadge = p.pagado 
+                ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">✅ PAGADO</span>'
+                : '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">⏳ PENDIENTE</span>';
+            
+            contenidoHTML += `
+                <div class="bg-white border-2 border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="font-bold text-lg text-gray-800">${p.nombre}</p>
+                            <p class="text-sm text-gray-600">${p.email}</p>
+                            ${p.parejanombre ? `<p class="text-sm text-purple-600 mt-1">👥 Pareja: ${p.parejanombre}</p>` : ''}
+                            <div class="flex gap-2 mt-2">
+                                <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">${p.nivel || 'intermedio'}</span>
+                                ${pagadoBadge}
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            ${!p.pagado ? `
+                                <button onclick="marcarPagadoParticipanteVisual(${torneoId}, '${p.email}')" 
+                                    class="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">
+                                    💰 Marcar Pagado
+                                </button>
+                            ` : ''}
+                            <button onclick="eliminarParticipanteVisual(${torneoId}, '${p.email}', '${p.nombre}')" 
+                                class="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
     }
-
-    let mensaje = `👥 PARTICIPANTES (${torneo.participantes.length})\n`;
-    mensaje += `═══════════════════════\n\n`;
     
-    torneo.participantes.forEach((p, i) => {
-      mensaje += `${i + 1}. ${p.nombre}\n`;
-      mensaje += `   ${p.email}\n`;
-      if (p.pareja_nombre) mensaje += `   Pareja: ${p.pareja_nombre}\n`;
-      if (p.nivel) mensaje += `   Nivel: ${p.nivel}\n`;
-      mensaje += `   ${p.pagado ? 'PAGADO' : 'PENDIENTE'}\n`;
-      if (p.puntos !== undefined) mensaje += `  Puntos: ${p.puntos}\n`;
-      mensaje += `\n`;
-    });
-
-    const accion = prompt(mensaje + '\nOpciones:\n1 = Agregar participante\n2 = Marcar pago\n3 = Eliminar participante\n0 = Salir');
+    contenidoHTML += `
+                </div>
+            </div>
+        </div>
+    `;
     
-    if (accion === '1') {
-      await agregarParticipanteManual(torneoId);
-    } else if (accion === '2') {
-      const email = prompt('Email del participante a marcar como pagado:');
-      if (email) await marcarPagadoParticipante(torneoId, email);
-    } else if (accion === '3') {
-      const email = prompt('Email del participante a eliminar:');
-      if (email && confirm(`Eliminar a ${email}?`)) {
-        await eliminarParticipante(torneoId, email);
-      }
-    }
-  } catch (err) {
-    alert('Error al cargar participantes');
-    console.error(err);
-  }
+    modal.innerHTML = contenidoHTML;
+    document.body.appendChild(modal);
 }
 
-async function agregarParticipanteManual(torneoId) {
-  const email = prompt('Email del participante:');
-  if (!email) return;
-  
-  const nombre = prompt('Nombre completo:');
-  if (!nombre) return;
-  
-  const pareja_email = prompt('Email de la pareja (opcional, dejar vacío si no aplica):');
-  const pareja_nombre = pareja_email ? prompt('Nombre de la pareja:') : null;
-  const nivel = prompt('Nivel (principiante/intermedio/avanzado/profesional):', 'intermedio');
-  const pagado = confirm('¿Ya pagó la inscripción?');
-
-  try {
-    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/participante`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': state.token
-      },
-      body: JSON.stringify({ email, nombre, pareja_email, pareja_nombre, nivel, pagado })
-    });
-
-    const data = await response.json();
-    
-    if (data.ok) {
-      alert('Participante agregado');
-      await loadAllData();
-    } else {
-      alert('Error: ' + (data.msg || 'No se pudo agregar'));
-    }
-  } catch (err) {
-    alert('Error al agregar participante');
-  }
+function cerrarModalParticipantes() {
+    const modal = document.getElementById('modalParticipantes');
+    if (modal) modal.remove();
 }
 
-async function marcarPagadoParticipante(torneoId, email) {
-  try {
-    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/participantes/${email}/pagar`, {
-      method: 'PATCH',
-      headers: { 'x-admin-token': state.token }
-    });
-
-    const data = await response.json();
+async function agregarParticipanteVisual(torneoId) {
+    const email = document.getElementById(`part-email-${torneoId}`).value.trim();
+    const nombre = document.getElementById(`part-nombre-${torneoId}`).value.trim();
+    const parejaemail = document.getElementById(`part-parejaemail-${torneoId}`).value.trim() || null;
+    const parejanombre = document.getElementById(`part-parejanombre-${torneoId}`).value.trim() || null;
+    const nivel = document.getElementById(`part-nivel-${torneoId}`).value;
+    const pagado = document.getElementById(`part-pagado-${torneoId}`).checked;
     
-    if (data.ok) {
-      alert('Marcado como pagado');
-      await loadAllData();
-    } else {
-      alert('Error: ' + (data.msg || 'No se pudo marcar'));
+    if (!email || !nombre) {
+        alert('⚠️ Email y Nombre son obligatorios');
+        return;
     }
-  } catch (err) {
-    alert('Error al marcar como pagado');
-  }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participante`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-token': state.token
+            },
+            body: JSON.stringify({ email, nombre, parejaemail, parejanombre, nivel, pagado })
+        });
+        
+        const data = await response.json();
+        if (data.ok) {
+            alert('✅ Participante agregado exitosamente');
+            cerrarModalParticipantes();
+            await loadAllData();
+            // Reabrir modal actualizado
+            const resp = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
+            const torneo = await resp.json();
+            mostrarModalParticipantes(torneoId, torneo);
+        } else {
+            alert('❌ Error: ' + (data.msg || 'No se pudo agregar'));
+        }
+    } catch (err) {
+        alert('❌ Error al agregar participante');
+        console.error(err);
+    }
 }
 
-async function eliminarParticipante(torneoId, email) {
-  try {
-    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/participante/${email}`, {
-      method: 'DELETE',
-      headers: { 'x-admin-token': state.token }
-    });
-
-    const data = await response.json();
-    
-    if (data.ok) {
-      alert('Participante eliminado');
-      await loadAllData();
-    } else {
-      alert('Error: ' + (data.msg || 'No se pudo eliminar'));
+async function marcarPagadoParticipanteVisual(torneoId, email) {
+    try {
+        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participantes/${email}/pagar`, {
+            method: 'PATCH',
+            headers: { 'x-admin-token': state.token }
+        });
+        
+        const data = await response.json();
+        if (data.ok) {
+            alert('✅ Marcado como pagado');
+            cerrarModalParticipantes();
+            await loadAllData();
+            const resp = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
+            const torneo = await resp.json();
+            mostrarModalParticipantes(torneoId, torneo);
+        } else {
+            alert('❌ Error: ' + (data.msg || 'No se pudo marcar'));
+        }
+    } catch (err) {
+        alert('❌ Error al marcar como pagado');
+        console.error(err);
     }
-  } catch (err) {
-    alert('Error al eliminar participante');
-  }
+}
+
+async function eliminarParticipanteVisual(torneoId, email, nombre) {
+    if (!confirm(`¿Eliminar a ${nombre}?`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/participante/${email}`, {
+            method: 'DELETE',
+            headers: { 'x-admin-token': state.token }
+        });
+        
+        const data = await response.json();
+        if (data.ok) {
+            alert('✅ Participante eliminado');
+            cerrarModalParticipantes();
+            await loadAllData();
+            const resp = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
+            const torneo = await resp.json();
+            mostrarModalParticipantes(torneoId, torneo);
+        } else {
+            alert('❌ Error: ' + (data.msg || 'No se pudo eliminar'));
+        }
+    } catch (err) {
+        alert('❌ Error al eliminar');
+        console.error(err);
+    }
 }
 
 async function generarBracket(torneoId) {
