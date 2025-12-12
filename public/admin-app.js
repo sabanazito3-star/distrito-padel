@@ -1033,29 +1033,39 @@ async function generarBracket(torneoId) {
   }
 }
 
-async function gestionarPartidostorneoId() {
+// ==========================================
+// FUNCIONES DE TORNEOS - VERSIÓN VISUAL MEJORADA
+// ==========================================
+
+async function gestionarPartidos(torneoId) {
     try {
         const response = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
         const torneo = await response.json();
         
         if (!torneo.partidos || torneo.partidos.length === 0) {
-            alert('No hay partidos generados');
+            alert('⚠️ No hay partidos generados. Genera el bracket primero.');
             return;
         }
         
-        // Mostrar vista detallada de partidos
-        mostrarVistaPartidos(torneoId, torneo);
+        // Mostrar modal visual con partidos
+        mostrarModalPartidos(torneoId, torneo);
         
     } catch (err) {
-        alert('Error al cargar partidos');
+        alert('❌ Error al cargar partidos');
+        console.error(err);
     }
 }
 
-function mostrarVistaPartidos(torneoId, torneo) {
-    // Crear modal o sección dedicada
+function mostrarModalPartidos(torneoId, torneo) {
+    // Eliminar modal anterior si existe
+    const modalAnterior = document.getElementById('modalPartidos');
+    if (modalAnterior) modalAnterior.remove();
+    
+    // Crear modal
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto p-4';
     modal.id = 'modalPartidos';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.style.overflowY = 'auto';
     
     // Agrupar partidos por ronda
     const porRonda = {};
@@ -1064,105 +1074,170 @@ function mostrarVistaPartidos(torneoId, torneo) {
         porRonda[p.ronda].push(p);
     });
     
+    // Ordenar rondas
+    const ordenRondas = ['Final', 'Semifinal', 'Cuartos de Final', 'Octavos de Final'];
+    const rondasOrdenadas = Object.keys(porRonda).sort((a, b) => {
+        const idxA = ordenRondas.indexOf(a);
+        const idxB = ordenRondas.indexOf(b);
+        if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+    });
+    
     let contenidoHTML = `
-        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
-                <h2 class="text-2xl font-bold">Partidos - ${torneo.nombre}</h2>
-                <button onclick="cerrarModalPartidos()" class="text-white hover:bg-white hover:text-purple-600 rounded-full p-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+        <div class="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <!-- Header fijo -->
+            <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-800 text-white p-6 rounded-t-2xl shadow-lg z-10">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold">🏆 ${torneo.nombre}</h2>
+                        <p class="text-sm text-purple-200 mt-1">Gestión de Partidos</p>
+                    </div>
+                    <button onclick="cerrarModalPartidos()" class="text-white hover:bg-white hover:text-purple-600 rounded-full p-2 transition-all">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
+            
+            <!-- Contenido -->
             <div class="p-6 space-y-6">
     `;
     
     // Renderizar cada ronda
-    Object.keys(porRonda).forEach(ronda => {
+    rondasOrdenadas.forEach(ronda => {
         contenidoHTML += `
-            <div class="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
-                <h3 class="text-xl font-bold text-purple-700 mb-4">${ronda.toUpperCase()}</h3>
-                <div class="space-y-4">
+            <div class="border-2 border-purple-200 rounded-xl overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-100 to-purple-200 px-6 py-3">
+                    <h3 class="text-xl font-bold text-purple-800">📍 ${ronda.toUpperCase()}</h3>
+                </div>
+                <div class="p-4 space-y-4 bg-purple-50">
         `;
         
         porRonda[ronda].forEach(partido => {
-            const eq1 = partido.equipo1nombres ? partido.equipo1nombres.join(' / ') : 'TBD';
-            const eq2 = partido.equipo2nombres ? partido.equipo2nombres.join(' / ') : 'TBD';
-            const estadoClass = {
-                'pendiente': 'bg-yellow-100 text-yellow-700',
-                'en-curso': 'bg-blue-100 text-blue-700',
-                'finalizado': 'bg-green-100 text-green-700'
-            }[partido.estado] || 'bg-gray-100 text-gray-700';
+            const eq1 = partido.equipo1nombres && partido.equipo1nombres.length > 0 
+                ? partido.equipo1nombres.join(' / ') 
+                : 'TBD';
+            const eq2 = partido.equipo2nombres && partido.equipo2nombres.length > 0 
+                ? partido.equipo2nombres.join(' / ') 
+                : 'TBD';
+            
+            const estadoConfig = {
+                'pendiente': { class: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: '⏳', text: 'PENDIENTE' },
+                'en-curso': { class: 'bg-blue-100 text-blue-700 border-blue-300', icon: '⚡', text: 'EN CURSO' },
+                'finalizado': { class: 'bg-green-100 text-green-700 border-green-300', icon: '✅', text: 'FINALIZADO' }
+            };
+            const estado = estadoConfig[partido.estado] || estadoConfig['pendiente'];
             
             const mostrarFormulario = partido.estado !== 'finalizado';
             
             contenidoHTML += `
-                <div class="bg-white rounded-lg border-2 p-4 hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-center mb-3">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-2">
-                                <span class="font-bold text-lg text-gray-800">${eq1}</span>
-                                ${partido.estado === 'finalizado' ? `<span class="text-2xl font-bold text-purple-600">${partido.resultadoequipo1}</span>` : ''}
+                <div class="bg-white rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <!-- Info del partido -->
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex-1">
+                                <!-- Equipo 1 -->
+                                <div class="flex items-center justify-between mb-3 pb-3 border-b-2 border-gray-100">
+                                    <div class="flex-1">
+                                        <span class="font-bold text-lg text-gray-800">${eq1}</span>
+                                    </div>
+                                    ${partido.estado === 'finalizado' 
+                                        ? `<span class="text-3xl font-bold ${partido.ganador === 'equipo1' ? 'text-green-600' : 'text-gray-400'}">${partido.resultadoequipo1}</span>` 
+                                        : '<span class="text-2xl text-gray-300">-</span>'}
+                                </div>
+                                
+                                <!-- VS -->
+                                <div class="text-center my-2">
+                                    <span class="text-sm font-bold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">VS</span>
+                                </div>
+                                
+                                <!-- Equipo 2 -->
+                                <div class="flex items-center justify-between mt-3 pt-3 border-t-2 border-gray-100">
+                                    <div class="flex-1">
+                                        <span class="font-bold text-lg text-gray-800">${eq2}</span>
+                                    </div>
+                                    ${partido.estado === 'finalizado' 
+                                        ? `<span class="text-3xl font-bold ${partido.ganador === 'equipo2' ? 'text-green-600' : 'text-gray-400'}">${partido.resultadoequipo2}</span>` 
+                                        : '<span class="text-2xl text-gray-300">-</span>'}
+                                </div>
                             </div>
-                            <div class="text-sm text-gray-500 mb-2">VS</div>
-                            <div class="flex items-center gap-3">
-                                <span class="font-bold text-lg text-gray-800">${eq2}</span>
-                                ${partido.estado === 'finalizado' ? `<span class="text-2xl font-bold text-purple-600">${partido.resultadoequipo2}</span>` : ''}
+                            
+                            <!-- Estado -->
+                            <div class="ml-4 text-right">
+                                <span class="px-4 py-2 rounded-lg text-xs font-bold border-2 ${estado.class} inline-flex items-center gap-1">
+                                    ${estado.icon} ${estado.text}
+                                </span>
+                                ${partido.estado === 'finalizado' && partido.cancha 
+                                    ? `<p class="text-xs text-gray-500 mt-2">🎾 Cancha ${partido.cancha}</p>` 
+                                    : ''}
+                                ${partido.estado === 'finalizado' && partido.fecha 
+                                    ? `<p class="text-xs text-gray-500">📅 ${formatearFecha(partido.fecha)}</p>` 
+                                    : ''}
                             </div>
                         </div>
-                        <div class="text-right">
-                            <span class="px-3 py-1 rounded-full text-xs font-bold ${estadoClass}">
-                                ${partido.estado.toUpperCase()}
-                            </span>
-                            ${partido.estado === 'finalizado' && partido.cancha ? `<p class="text-xs text-gray-500 mt-2">Cancha ${partido.cancha}</p>` : ''}
-                        </div>
+                        
+                        ${mostrarFormulario ? `
+                            <!-- Formulario de resultado -->
+                            <div class="mt-5 border-t-2 pt-5 bg-gray-50 -mx-5 -mb-5 px-5 pb-5 rounded-b-xl">
+                                <h4 class="font-bold text-sm text-gray-700 mb-4 flex items-center gap-2">
+                                    <span class="text-lg">📝</span> Registrar Resultado
+                                </h4>
+                                
+                                <!-- Sets ganados -->
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="block text-xs font-bold mb-2 text-gray-700">Sets ganados - ${eq1}</label>
+                                        <input type="number" id="sets1-${partido.id}" min="0" max="3" value="0" 
+                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-center text-xl font-bold">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold mb-2 text-gray-700">Sets ganados - ${eq2}</label>
+                                        <input type="number" id="sets2-${partido.id}" min="0" max="3" value="0" 
+                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-center text-xl font-bold">
+                                    </div>
+                                </div>
+                                
+                                <!-- Detalles de sets -->
+                                <div id="sets-detalle-${partido.id}" class="mb-4 space-y-2"></div>
+                                
+                                <button onclick="agregarSetDetalle(${partido.id}, '${eq1}', '${eq2}')" 
+                                    class="w-full mb-4 px-4 py-3 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+                                    <span class="text-lg">➕</span> Agregar Detalle de Set (Opcional)
+                                </button>
+                                
+                                <!-- Datos adicionales -->
+                                <div class="grid grid-cols-3 gap-3 mb-4">
+                                    <div>
+                                        <label class="block text-xs font-bold mb-2 text-gray-700">🎾 Cancha</label>
+                                        <select id="cancha-${partido.id}" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-sm">
+                                            <option value="1">Cancha 1</option>
+                                            <option value="2">Cancha 2</option>
+                                            <option value="3">Cancha 3</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold mb-2 text-gray-700">📅 Fecha</label>
+                                        <input type="date" id="fecha-${partido.id}" value="${new Date().toISOString().split('T')[0]}" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold mb-2 text-gray-700">🕐 Hora</label>
+                                        <input type="time" id="hora-${partido.id}" value="18:00" 
+                                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-sm">
+                                    </div>
+                                </div>
+                                
+                                <!-- Botón guardar -->
+                                <button onclick="guardarResultadoPartido(${torneoId}, ${partido.id})" 
+                                    class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-bold text-lg hover:from-green-600 hover:to-green-700 hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                                    <span class="text-2xl">💾</span> Guardar Resultado
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
-                    
-                    ${mostrarFormulario ? `
-                        <div id="form-${partido.id}" class="mt-4 border-t-2 pt-4">
-                            <h4 class="font-bold text-sm text-gray-700 mb-3">Registrar Resultado</h4>
-                            <div class="grid grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label class="block text-xs font-bold mb-1">Sets ${eq1}</label>
-                                    <input type="number" id="sets1-${partido.id}" min="0" max="3" class="w-full px-3 py-2 border-2 rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold mb-1">Sets ${eq2}</label>
-                                    <input type="number" id="sets2-${partido.id}" min="0" max="3" class="w-full px-3 py-2 border-2 rounded-lg">
-                                </div>
-                            </div>
-                            
-                            <div id="sets-detalle-${partido.id}" class="mb-3"></div>
-                            
-                            <button onclick="agregarSetDetalle(${partido.id})" class="w-full mb-3 px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
-                                + Agregar Detalle de Set
-                            </button>
-                            
-                            <div class="grid grid-cols-3 gap-2 mb-3">
-                                <div>
-                                    <label class="block text-xs font-bold mb-1">Cancha</label>
-                                    <select id="cancha-${partido.id}" class="w-full px-2 py-2 border-2 rounded-lg text-sm">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold mb-1">Fecha</label>
-                                    <input type="date" id="fecha-${partido.id}" value="${new Date().toISOString().split('T')[0]}" class="w-full px-2 py-2 border-2 rounded-lg text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold mb-1">Hora</label>
-                                    <input type="time" id="hora-${partido.id}" value="18:00" class="w-full px-2 py-2 border-2 rounded-lg text-sm">
-                                </div>
-                            </div>
-                            
-                            <button onclick="guardarResultadoPartido(${torneoId}, ${partido.id})" 
-                                class="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-bold hover:shadow-lg">
-                                💾 Guardar Resultado
-                            </button>
-                        </div>
-                    ` : ''}
                 </div>
             `;
         });
@@ -1187,47 +1262,60 @@ function cerrarModalPartidos() {
     if (modal) modal.remove();
 }
 
-// Función para agregar detalles de sets dinámicamente
-function agregarSetDetalle(partidoId) {
+function agregarSetDetalle(partidoId, eq1, eq2) {
     const container = document.getElementById(`sets-detalle-${partidoId}`);
     const numSet = container.children.length + 1;
     
+    if (numSet > 5) {
+        alert('⚠️ Máximo 5 sets');
+        return;
+    }
+    
     const setDiv = document.createElement('div');
-    setDiv.className = 'grid grid-cols-2 gap-2 mb-2 bg-gray-50 p-2 rounded';
+    setDiv.className = 'grid grid-cols-2 gap-3 bg-white p-3 rounded-lg border-2 border-gray-200';
     setDiv.innerHTML = `
         <div>
-            <label class="block text-xs font-bold mb-1">Set ${numSet} - Equipo 1</label>
-            <input type="number" id="set${numSet}-eq1-${partidoId}" min="0" max="7" placeholder="Puntos" class="w-full px-2 py-1 border rounded text-sm">
+            <label class="block text-xs font-bold mb-1 text-gray-700">Set ${numSet} - ${eq1}</label>
+            <input type="number" id="set${numSet}-eq1-${partidoId}" min="0" max="7" placeholder="Puntos" 
+                class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-center font-bold">
         </div>
         <div>
-            <label class="block text-xs font-bold mb-1">Set ${numSet} - Equipo 2</label>
-            <input type="number" id="set${numSet}-eq2-${partidoId}" min="0" max="7" placeholder="Puntos" class="w-full px-2 py-1 border rounded text-sm">
+            <label class="block text-xs font-bold mb-1 text-gray-700">Set ${numSet} - ${eq2}</label>
+            <input type="number" id="set${numSet}-eq2-${partidoId}" min="0" max="7" placeholder="Puntos" 
+                class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-center font-bold">
         </div>
     `;
     container.appendChild(setDiv);
 }
 
-// Función para guardar resultado
 async function guardarResultadoPartido(torneoId, partidoId) {
     const sets1 = parseInt(document.getElementById(`sets1-${partidoId}`).value) || 0;
     const sets2 = parseInt(document.getElementById(`sets2-${partidoId}`).value) || 0;
     
     if (sets1 === 0 && sets2 === 0) {
-        alert('Debes ingresar al menos un set ganado');
+        alert('⚠️ Debes ingresar al menos un set ganado por algún equipo');
         return;
     }
     
-    // Recopilar detalles de sets
+    if (sets1 === sets2) {
+        alert('⚠️ No puede haber empate en sets. Uno debe ganar.');
+        return;
+    }
+    
+    // Recopilar detalles de sets (opcional)
     const setsdetalle = [];
     const container = document.getElementById(`sets-detalle-${partidoId}`);
-    for (let i = 1; i <= container.children.length; i++) {
-        const eq1Input = document.getElementById(`set${i}-eq1-${partidoId}`);
-        const eq2Input = document.getElementById(`set${i}-eq2-${partidoId}`);
-        if (eq1Input && eq2Input) {
-            setsdetalle.push([
-                parseInt(eq1Input.value) || 0,
-                parseInt(eq2Input.value) || 0
-            ]);
+    if (container) {
+        for (let i = 1; i <= container.children.length; i++) {
+            const eq1Input = document.getElementById(`set${i}-eq1-${partidoId}`);
+            const eq2Input = document.getElementById(`set${i}-eq2-${partidoId}`);
+            if (eq1Input && eq2Input) {
+                const val1 = parseInt(eq1Input.value) || 0;
+                const val2 = parseInt(eq2Input.value) || 0;
+                if (val1 > 0 || val2 > 0) {
+                    setsdetalle.push([val1, val2]);
+                }
+            }
         }
     }
     
@@ -1235,6 +1323,11 @@ async function guardarResultadoPartido(torneoId, partidoId) {
     const cancha = parseInt(document.getElementById(`cancha-${partidoId}`).value);
     const fecha = document.getElementById(`fecha-${partidoId}`).value;
     const hora = document.getElementById(`hora-${partidoId}`).value;
+    
+    // Confirmar
+    if (!confirm(`¿Confirmar resultado?\n\nEquipo 1: ${sets1} sets\nEquipo 2: ${sets2} sets\nGanador: Equipo ${ganador === 'equipo1' ? '1' : '2'}`)) {
+        return;
+    }
     
     try {
         const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/resultado`, {
@@ -1247,7 +1340,7 @@ async function guardarResultadoPartido(torneoId, partidoId) {
                 partidoid: partidoId,
                 resultadoequipo1: sets1,
                 resultadoequipo2: sets2,
-                setsdetalle,
+                setsdetalle: setsdetalle.length > 0 ? setsdetalle : null,
                 ganador,
                 cancha,
                 fecha,
@@ -1267,6 +1360,12 @@ async function guardarResultadoPartido(torneoId, partidoId) {
         alert('❌ Error al guardar resultado');
         console.error(err);
     }
+}
+
+// Mantener las otras funciones como están
+async function registrarResultado(torneoId, partidoId) {
+    // Esta función ya no se usa, se reemplaza por guardarResultadoPartido
+    alert('⚠️ Usa el botón "Partidos" para gestionar resultados');
 }
 
 // ==================== CONFIG Y REPORTES ====================
