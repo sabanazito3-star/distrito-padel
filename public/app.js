@@ -732,7 +732,7 @@ async function cancelarReserva(id) {
   }
 }
 
-// TORNEOS
+// ============ TORNEOS ============
 
 async function verTorneos() {
   try {
@@ -768,39 +768,43 @@ function renderizarTorneos() {
   }
   
   if (torneosFiltrados.length === 0) {
-    container.innerHTML = '<p class="text-center text-gray-500 py-8 col-span-2">No hay torneos disponibles</p>';
+    container.innerHTML = '<p class="text-center text-gray-500 py-8 col-span-full">No hay torneos disponibles</p>';
     return;
   }
   
   torneosFiltrados.forEach(torneo => {
-    const participantes = Array.isArray(torneo.participantes) ? torneo.participantes : [];
+    const participantes = torneo.total_participantes || 0;
     const div = document.createElement('div');
-    div.className = 'bg-white rounded-xl border-2 border-gray-200 hover:border-primary transition-all cursor-pointer overflow-hidden';
+    div.className = 'torneo-card bg-white rounded-xl border-2 border-gray-200 overflow-hidden cursor-pointer shadow-sm';
     div.onclick = () => verDetalleTorneo(torneo.id);
     
     const estadoBadge = {
-      'abierto': '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">Inscripciones Abiertas</span>',
-      'cerrado': '<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-bold">Inscripciones Cerradas</span>',
-      'en-curso': '<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">En Curso</span>',
-      'finalizado': '<span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-bold">Finalizado</span>'
+      'abierto': '<span class="badge-estado badge-abierto">Inscripciones Abiertas</span>',
+      'cerrado': '<span class="badge-estado badge-cerrado">Inscripciones Cerradas</span>',
+      'en-curso': '<span class="badge-estado badge-en-curso">En Curso</span>',
+      'finalizado': '<span class="badge-estado badge-finalizado">Finalizado</span>'
     };
     
     const tipoNombre = {
-      'relampago': 'Relampago',
+      'eliminacion-simple': 'Eliminacion Simple',
+      'doble-eliminacion': 'Doble Eliminacion',
+      'round-robin': 'Round Robin',
       'rey-pala': 'Rey de la Pala',
-      'eliminacion': 'Eliminacion',
-      'americano': 'Americano'
+      'relampago': 'Relampago',
+      'americano': 'Americano',
+      'mixto': 'Mixto',
+      'liga': 'Liga'
     };
     
     div.innerHTML = `
-      ${torneo.imagen ? `<img src="${torneo.imagen}" class="w-full h-40 object-cover" alt="${torneo.nombre}">` : ''}
+      ${torneo.imagen_base64 ? `<img src="${torneo.imagen_base64}" class="w-full h-40 object-cover" alt="${torneo.nombre}">` : ''}
       <div class="p-6">
         <div class="flex justify-between items-start mb-3">
           <h3 class="text-xl font-bold text-primary">${torneo.nombre}</h3>
           ${estadoBadge[torneo.estado] || ''}
         </div>
-        <p class="text-sm text-gray-600 mb-2">${tipoNombre[torneo.tipo] || torneo.tipo}</p>
-        <p class="text-sm text-gray-700 mb-4 line-clamp-2">${torneo.descripcion}</p>
+        <p class="text-sm text-purple-600 font-semibold mb-2">${tipoNombre[torneo.tipo] || torneo.tipo}</p>
+        <p class="text-sm text-gray-700 mb-4 line-clamp-2">${torneo.descripcion || 'Sin descripcion'}</p>
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-600">Fecha:</span>
@@ -808,11 +812,11 @@ function renderizarTorneos() {
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">Inscripcion:</span>
-            <span class="font-bold">$${torneo.precio_inscripcion}</span>
+            <span class="font-bold text-green-600">$${torneo.precio_inscripcion}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">Participantes:</span>
-            <span class="font-bold">${participantes.length}/${torneo.max_participantes}</span>
+            <span class="font-bold">${participantes}/${torneo.max_participantes}</span>
           </div>
         </div>
       </div>
@@ -835,15 +839,19 @@ async function verDetalleTorneo(torneoId) {
     const yaInscrito = participantes.some(p => p.email === state.email);
     
     const tipoNombre = {
-      'relampago': 'Relampago',
+      'eliminacion-simple': 'Eliminacion Simple',
+      'doble-eliminacion': 'Doble Eliminacion',
+      'round-robin': 'Round Robin',
       'rey-pala': 'Rey de la Pala',
-      'eliminacion': 'Eliminacion',
-      'americano': 'Americano'
+      'relampago': 'Relampago',
+      'americano': 'Americano',
+      'mixto': 'Mixto',
+      'liga': 'Liga'
     };
     
     const html = `
       <div class="space-y-6">
-        ${torneo.imagen ? `<img src="${torneo.imagen}" class="w-full h-64 object-cover rounded-xl" alt="${torneo.nombre}">` : ''}
+        ${torneo.imagen_base64 ? `<img src="${torneo.imagen_base64}" class="w-full h-64 object-cover rounded-xl" alt="${torneo.nombre}">` : ''}
         
         <div class="bg-gray-50 p-6 rounded-xl space-y-3">
           <div class="flex justify-between">
@@ -852,7 +860,7 @@ async function verDetalleTorneo(torneoId) {
           </div>
           <div class="flex justify-between">
             <span class="text-gray-700 font-semibold">Fecha Inicio:</span>
-            <span class="font-bold">${formatearFecha(torneo.fecha_inicio)} - ${torneo.hora_inicio || 'Por definir'}</span>
+            <span class="font-bold">${formatearFecha(torneo.fecha_inicio)}${torneo.hora_inicio ? ' - ' + convertirA12h(torneo.hora_inicio) : ''}</span>
           </div>
           ${torneo.fecha_fin ? `
           <div class="flex justify-between">
@@ -876,7 +884,7 @@ async function verDetalleTorneo(torneoId) {
         
         <div>
           <h3 class="text-xl font-bold mb-2 text-primary">Descripcion</h3>
-          <p class="text-gray-700">${torneo.descripcion}</p>
+          <p class="text-gray-700">${torneo.descripcion || 'Sin descripcion'}</p>
         </div>
         
         ${torneo.reglas ? `
@@ -912,8 +920,8 @@ async function verDetalleTorneo(torneoId) {
         
         ${torneo.estado === 'abierto' ? `
           ${!yaInscrito ? `
-            <div>
-              <h3 class="text-xl font-bold mb-3 text-primary">Inscribirse al Torneo</h3>
+            <div class="bg-purple-50 border-2 border-purple-300 p-6 rounded-xl">
+              <h3 class="text-xl font-bold mb-4 text-primary">Inscribirse al Torneo</h3>
               <div class="space-y-3">
                 <div>
                   <label class="block text-sm font-bold mb-2">Email de tu pareja (opcional)</label>
@@ -942,27 +950,32 @@ async function verDetalleTorneo(torneoId) {
           <div>
             <h3 class="text-xl font-bold mb-3 text-primary">Fixture / Resultados</h3>
             <div class="space-y-3">
-              ${partidos.map((partido, idx) => `
-                <div class="bg-white p-4 rounded-lg border">
-                  <p class="text-sm font-bold text-gray-600 mb-2">${partido.ronda}</p>
-                  <div class="flex justify-between items-center">
-                    <div class="flex-1">
-                      <p class="font-bold">${Array.isArray(partido.equipo1) ? partido.equipo1.join(' / ') : ''}</p>
-                      <p class="text-sm text-gray-600">vs</p>
-                      <p class="font-bold">${Array.isArray(partido.equipo2) ? partido.equipo2.join(' / ') : ''}</p>
-                    </div>
-                    <div class="text-right">
-                      ${partido.resultado ? `
-                        <p class="text-lg font-bold text-green-600">${partido.resultado}</p>
-                        <p class="text-xs text-gray-600">Ganador: ${partido.ganador}</p>
-                      ` : `
-                        <p class="text-sm text-gray-500">${formatearFecha(partido.fecha)} ${partido.hora}</p>
-                        <p class="text-xs text-gray-500">Cancha ${partido.cancha}</p>
-                      `}
+              ${partidos.map((partido) => {
+                const eq1 = partido.equipo1_nombres ? partido.equipo1_nombres.join(' / ') : 'TBD';
+                const eq2 = partido.equipo2_nombres ? partido.equipo2_nombres.join(' / ') : 'TBD';
+                return `
+                  <div class="bg-white p-4 rounded-lg border">
+                    <p class="text-sm font-bold text-purple-600 mb-2">${partido.ronda || 'Partido'}</p>
+                    <div class="flex justify-between items-center">
+                      <div class="flex-1">
+                        <p class="font-bold">${eq1}</p>
+                        <p class="text-sm text-gray-600">vs</p>
+                        <p class="font-bold">${eq2}</p>
+                      </div>
+                      <div class="text-right">
+                        ${partido.estado === 'finalizado' ? `
+                          <p class="text-lg font-bold text-green-600">${partido.resultado_equipo1} - ${partido.resultado_equipo2}</p>
+                          <p class="text-xs text-gray-600">Ganador: ${partido.ganador === 'equipo1' ? eq1 : eq2}</p>
+                        ` : `
+                          <p class="text-sm text-gray-500">${partido.fecha ? formatearFecha(partido.fecha) : 'Por definir'}</p>
+                          ${partido.hora ? `<p class="text-xs text-gray-500">${convertirA12h(partido.hora)}</p>` : ''}
+                          ${partido.cancha ? `<p class="text-xs text-gray-500">Cancha ${partido.cancha}</p>` : ''}
+                        `}
+                      </div>
                     </div>
                   </div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           </div>
         ` : ''}
@@ -973,6 +986,7 @@ async function verDetalleTorneo(torneoId) {
     document.getElementById('detalleTorneoModal').classList.remove('hidden');
   } catch (err) {
     alert('Error al cargar detalle del torneo');
+    console.error(err);
   }
 }
 
@@ -1000,6 +1014,7 @@ async function inscribirseTorneo(torneoId) {
     }
   } catch (err) {
     alert('Error de conexion');
+    console.error(err);
   }
 }
 
@@ -1023,6 +1038,7 @@ async function cancelarInscripcionTorneo(torneoId) {
     }
   } catch (err) {
     alert('Error de conexion');
+    console.error(err);
   }
 }
 

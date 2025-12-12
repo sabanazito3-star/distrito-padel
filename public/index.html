@@ -103,6 +103,34 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .badge-estado {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .badge-abierto { background-color: #dcfce7; color: #166534; }
+    .badge-cerrado { background-color: #fef3c7; color: #92400e; }
+    .badge-en-curso { background-color: #dbeafe; color: #1e40af; }
+    .badge-finalizado { background-color: #f3f4f6; color: #374151; }
+
+    .torneo-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .torneo-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
   </style>
   
   <link rel="preload" as="image" href="logo.png">
@@ -209,7 +237,7 @@
           Mis Reservas
         </button>
         <button onclick="verTorneos()" 
-          class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition">
+          class="flex-1 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition">
           Torneos
         </button>
       </div>
@@ -318,7 +346,7 @@
 
       <!-- Filtros de Estado -->
       <div class="flex flex-wrap gap-2 mb-6">
-        <button onclick="filtrarTorneos('todos')" class="filtro-torneo-btn active px-4 py-2 bg-primary text-white rounded-lg font-bold transition">
+        <button onclick="filtrarTorneos('todos')" class="filtro-torneo-btn active px-4 py-2 rounded-lg font-bold transition">
           Todos
         </button>
         <button onclick="filtrarTorneos('abierto')" class="filtro-torneo-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold transition">
@@ -332,7 +360,7 @@
         </button>
       </div>
 
-      <div id="torneosList" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div id="torneosList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Se genera dinamicamente -->
       </div>
     </div>
@@ -340,12 +368,25 @@
 
   <!-- Modal Detalle Torneo -->
   <div id="detalleTorneoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8">
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-8">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-3xl font-bold text-primary" id="detalleTorneoTitulo">Detalle del Torneo</h2>
         <button onclick="cerrarDetalleTorneo()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
       </div>
       <div id="detalleTorneoContenido">
+        <!-- Se genera dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Inscripcion Torneo -->
+  <div id="inscripcionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-primary">Inscribirse al Torneo</h2>
+        <button onclick="cerrarInscripcion()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+      </div>
+      <div id="inscripcionFormulario">
         <!-- Se genera dinamicamente -->
       </div>
     </div>

@@ -19,7 +19,7 @@
                     <img src="logo.jpg" alt="Distrito Padel" class="w-16 h-16 rounded-xl">
                     <div>
                         <h1 class="text-3xl font-bold">Panel Admin</h1>
-                        <p class="text-sm text-green-100">Distrito Padel v7.6</p>
+                        <p class="text-sm text-green-100">Distrito Padel v8.0</p>
                     </div>
                 </div>
                 <div id="lastUpdate" class="text-sm text-green-100"></div>
@@ -292,10 +292,10 @@
 
             <!-- CONTENIDO TORNEOS -->
             <div id="contentTorneos" class="bg-white rounded-xl shadow-md p-6 hidden">
-                <h2 class="text-2xl font-bold mb-6 text-blue-600">Gestion de Torneos</h2>
+                <h2 class="text-2xl font-bold mb-6 text-purple-600">Gestion de Torneos</h2>
 
-                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-blue-700">Crear Nuevo Torneo</h3>
+                <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-purple-700">Crear Nuevo Torneo</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-bold mb-2">Nombre *</label>
@@ -305,10 +305,14 @@
                         <div>
                             <label class="block text-sm font-bold mb-2">Tipo *</label>
                             <select id="torneoTipo" class="w-full px-4 py-2 border-2 rounded-lg">
-                                <option value="relampago">Relampago</option>
+                                <option value="eliminacion-simple">Eliminacion Simple</option>
+                                <option value="doble-eliminacion">Doble Eliminacion</option>
+                                <option value="round-robin">Round Robin</option>
                                 <option value="rey-pala">Rey de la Pala</option>
-                                <option value="eliminacion">Eliminacion</option>
+                                <option value="relampago">Relampago</option>
                                 <option value="americano">Americano</option>
+                                <option value="mixto">Mixto</option>
+                                <option value="liga">Liga</option>
                             </select>
                         </div>
                         <div class="md:col-span-2">
@@ -344,9 +348,10 @@
                                    class="w-full px-4 py-2 border-2 rounded-lg">
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-bold mb-2">URL Imagen (opcional)</label>
-                            <input type="text" id="torneoImagen" placeholder="https://ejemplo.com/imagen.jpg" 
+                            <label class="block text-sm font-bold mb-2">Imagen del Torneo (max 5MB)</label>
+                            <input type="file" id="torneoImagen" accept="image/*" 
                                    class="w-full px-4 py-2 border-2 rounded-lg">
+                            <p class="text-xs text-gray-500 mt-1">Formatos: JPG, PNG, WEBP. Se guardara en base64.</p>
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-sm font-bold mb-2">Reglas (opcional)</label>
@@ -360,7 +365,7 @@
                         </div>
                     </div>
                     <button onclick="crearTorneo()" 
-                            class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">
+                            class="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700">
                         Crear Torneo
                     </button>
                 </div>

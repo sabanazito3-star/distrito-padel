@@ -1,4 +1,4 @@
-// admin-app.js - Panel Admin v7.6 - Con Sistema de Torneos
+// admin-app.js - Panel Admin v8.0 - Sistema Completo de Torneos
 const API_BASE = '';
 
 let state = {
@@ -15,7 +15,8 @@ let state = {
   mostrarPasadas: false,
   filtroTotalTipo: 'todo',
   filtroFechaInicio: '',
-  filtroFechaFin: ''
+  filtroFechaFin: '',
+  torneoActual: null
 };
 
 window.onload = () => {
@@ -623,6 +624,7 @@ async function eliminarBloqueo(id) {
     alert('Error al eliminar');
   }
 }
+// ==================== TORNEOS - SISTEMA COMPLETO ====================
 
 function renderTorneos() {
   const container = document.getElementById('torneosLista');
@@ -636,7 +638,9 @@ function renderTorneos() {
   }
 
   state.torneos.forEach(t => {
-    const participantes = Array.isArray(t.participantes) ? t.participantes.length : 0;
+    const participantes = t.total_participantes || 0;
+    const partidos = t.total_partidos || 0;
+    
     const estadoBadge = {
       'abierto': '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">Abierto</span>',
       'cerrado': '<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-bold">Cerrado</span>',
@@ -645,29 +649,56 @@ function renderTorneos() {
     };
 
     const div = document.createElement('div');
-    div.className = 'bg-white border-2 border-gray-200 rounded-xl p-4 mb-4';
+    div.className = 'bg-white border-2 border-gray-200 rounded-xl p-5 mb-4 hover:shadow-lg transition-shadow';
+    
+    const imagenHTML = t.imagen_base64 
+      ? `<img src="${t.imagen_base64}" class="w-full h-40 object-cover rounded-lg mb-3" alt="${t.nombre}">`
+      : '';
     
     div.innerHTML = `
+      ${imagenHTML}
       <div class="flex justify-between items-start mb-3">
         <div class="flex-1">
           <h3 class="font-bold text-xl text-gray-800">${t.nombre}</h3>
-          <p class="text-sm text-gray-600">${t.tipo}</p>
-          <p class="text-sm text-gray-700 mt-2">${t.descripcion || ''}</p>
+          <p class="text-sm text-purple-600 font-semibold">${formatearTipoTorneo(t.tipo)}</p>
+          <p class="text-sm text-gray-700 mt-1">${t.descripcion || ''}</p>
         </div>
         ${estadoBadge[t.estado] || ''}
       </div>
-      <div class="grid grid-cols-2 gap-2 text-sm mb-3">
-        <div><span class="text-gray-600">Fecha inicio:</span> <span class="font-bold">${formatearFecha(t.fecha_inicio)}</span></div>
-        <div><span class="text-gray-600">Inscripcion:</span> <span class="font-bold">$${t.precio_inscripcion}</span></div>
-        <div><span class="text-gray-600">Participantes:</span> <span class="font-bold">${participantes}/${t.max_participantes}</span></div>
-        <div><span class="text-gray-600">Estado:</span> <span class="font-bold">${t.estado}</span></div>
+      <div class="grid grid-cols-3 gap-3 text-sm mb-3 bg-gray-50 p-3 rounded-lg">
+        <div>
+          <span class="text-gray-600">Inicio:</span><br>
+          <span class="font-bold">${formatearFecha(t.fecha_inicio)}</span>
+        </div>
+        <div>
+          <span class="text-gray-600">Inscripción:</span><br>
+          <span class="font-bold text-green-600">$${t.precio_inscripcion}</span>
+        </div>
+        <div>
+          <span class="text-gray-600">👥 Jugadores:</span><br>
+          <span class="font-bold">${participantes}/${t.max_participantes}</span>
+        </div>
       </div>
-      <div class="flex gap-2">
-        <button onclick="editarTorneo('${t.id}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
-          Editar
+      ${partidos > 0 ? `<p class="text-xs text-blue-600 font-semibold mb-2">${partidos} partidos generados</p>` : ''}
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="verDetallesTorneo('${t.id}')" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm font-semibold">
+          Ver Detalles
         </button>
-        <button onclick="verParticipantesTorneo('${t.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
-          Ver Participantes
+        <button onclick="gestionarParticipantes('${t.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
+          Participantes
+        </button>
+        ${!t.bracket_generado && t.estado !== 'abierto' ? `
+          <button onclick="generarBracket('${t.id}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+            Generar Bracket
+          </button>
+        ` : ''}
+        ${t.bracket_generado ? `
+          <button onclick="gestionarPartidos('${t.id}')" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm">
+            Partidos
+          </button>
+        ` : ''}
+        <button onclick="cambiarEstadoTorneo('${t.id}', '${t.estado}')" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm">
+          Cambiar Estado
         </button>
         <button onclick="eliminarTorneo('${t.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
           Eliminar
@@ -676,6 +707,41 @@ function renderTorneos() {
     `;
     container.appendChild(div);
   });
+}
+
+function formatearTipoTorneo(tipo) {
+  const tipos = {
+    'eliminacion-simple': 'Eliminación Simple',
+    'doble-eliminacion': 'Doble Eliminación',
+    'round-robin': 'Round Robin',
+    'rey-pala': 'Rey de la Pala',
+    'relampago': 'Relámpago',
+    'americano': '🇺🇸 Americano',
+    'mixto': 'Mixto',
+    'liga': 'Liga'
+  };
+  return tipos[tipo] || tipo;
+}
+
+// Función para convertir imagen a base64
+function convertirImagenABase64(input, callback) {
+  const file = input.files[0];
+  if (!file) {
+    callback(null, null);
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('La imagen no debe superar 5MB');
+    callback(null, null);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    callback(e.target.result, file.name);
+  };
+  reader.readAsDataURL(file);
 }
 
 async function crearTorneo() {
@@ -688,109 +754,386 @@ async function crearTorneo() {
   const precio_inscripcion = parseInt(document.getElementById('torneoPrecio').value) || 0;
   const max_participantes = parseInt(document.getElementById('torneoMaxParticipantes').value) || 16;
   const min_participantes = parseInt(document.getElementById('torneoMinParticipantes').value) || 4;
-  const imagen = document.getElementById('torneoImagen').value.trim() || null;
   const reglas = document.getElementById('torneoReglas').value.trim() || null;
   const premios = document.getElementById('torneoPremios').value.trim() || null;
 
   if (!nombre || !tipo || !fecha_inicio) {
-    alert('Completa los campos obligatorios');
+    alert('Completa los campos obligatorios (Nombre, Tipo, Fecha)');
     return;
   }
 
+  const imagenInput = document.getElementById('torneoImagen');
+  
+  convertirImagenABase64(imagenInput, async (imagen_base64, imagen_nombre) => {
+    try {
+      const response = await fetch(API_BASE + '/api/admin/torneos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': state.token
+        },
+        body: JSON.stringify({
+          nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
+          precio_inscripcion, max_participantes, min_participantes,
+          imagen_base64, imagen_nombre, reglas, premios
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.ok) {
+        alert('Torneo creado exitosamente');
+        document.getElementById('torneoNombre').value = '';
+        document.getElementById('torneoDescripcion').value = '';
+        document.getElementById('torneoFechaInicio').value = '';
+        document.getElementById('torneoFechaFin').value = '';
+        document.getElementById('torneoHoraInicio').value = '';
+        document.getElementById('torneoPrecio').value = '0';
+        document.getElementById('torneoReglas').value = '';
+        document.getElementById('torneoPremios').value = '';
+        imagenInput.value = '';
+        await loadAllData();
+      } else {
+        alert('Error: ' + (data.msg || 'No se pudo crear'));
+      }
+    } catch (err) {
+      alert('Error al crear torneo');
+      console.error(err);
+    }
+  });
+}
+
+async function cambiarEstadoTorneo(id, estadoActual) {
+  const opciones = {
+    'abierto': 'Cerrar inscripciones',
+    'cerrado': 'Iniciar torneo',
+    'en-curso': 'Finalizar torneo',
+    'finalizado': 'Reabrir'
+  };
+
+  const nuevoEstado = {
+    'abierto': 'cerrado',
+    'cerrado': 'en-curso',
+    'en-curso': 'finalizado',
+    'finalizado': 'abierto'
+  };
+
+  if (!confirm(`${opciones[estadoActual]}?`)) return;
+
   try {
-    await fetch(API_BASE + '/api/admin/torneos', {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ estado: nuevoEstado[estadoActual] })
+    });
+
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert('Estado actualizado');
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo actualizar'));
+    }
+  } catch (err) {
+    alert('Error al actualizar estado');
+  }
+}
+
+async function eliminarTorneo(id) {
+  if (!confirm('Eliminar este torneo?\n\nSe eliminaran todos los participantes y partidos.')) return;
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': state.token }
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert('Torneo eliminado');
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo eliminar'));
+    }
+  } catch (err) {
+    alert('Error al eliminar torneo');
+  }
+}
+
+async function verDetallesTorneo(id) {
+  try {
+    const response = await fetch(API_BASE + `/api/torneos/${id}`);
+    const torneo = await response.json();
+
+    let mensaje = `DETALLES DEL TORNEO\n`;
+    mensaje += `═══════════════════════\n`;
+    mensaje += `Nombre: ${torneo.nombre}\n`;
+    mensaje += `Tipo: ${formatearTipoTorneo(torneo.tipo)}\n`;
+    mensaje += `Estado: ${torneo.estado.toUpperCase()}\n`;
+    mensaje += `Fecha: ${formatearFecha(torneo.fecha_inicio)}\n`;
+    if (torneo.hora_inicio) mensaje += `Hora: ${convertirA12h(torneo.hora_inicio)}\n`;
+    mensaje += `Inscripción: $${torneo.precio_inscripcion}\n`;
+    mensaje += `Participantes: ${torneo.participantes.length}/${torneo.max_participantes}\n`;
+    if (torneo.reglas) mensaje += `\nReglas: ${torneo.reglas}\n`;
+    if (torneo.premios) mensaje += `\nPremios: ${torneo.premios}\n`;
+    
+    alert(mensaje);
+  } catch (err) {
+    alert('Error al cargar detalles');
+  }
+}
+
+async function gestionarParticipantes(torneoId) {
+  try {
+    const response = await fetch(API_BASE + `/api/torneos/${torneoId}`);
+    const torneo = await response.json();
+
+    if (!torneo.participantes || torneo.participantes.length === 0) {
+      const agregar = confirm('No hay participantes.\n\n¿Agregar uno manualmente?');
+      if (agregar) {
+        await agregarParticipanteManual(torneoId);
+      }
+      return;
+    }
+
+    let mensaje = `👥 PARTICIPANTES (${torneo.participantes.length})\n`;
+    mensaje += `═══════════════════════\n\n`;
+    
+    torneo.participantes.forEach((p, i) => {
+      mensaje += `${i + 1}. ${p.nombre}\n`;
+      mensaje += `   ${p.email}\n`;
+      if (p.pareja_nombre) mensaje += `   Pareja: ${p.pareja_nombre}\n`;
+      if (p.nivel) mensaje += `   Nivel: ${p.nivel}\n`;
+      mensaje += `   ${p.pagado ? 'PAGADO' : 'PENDIENTE'}\n`;
+      if (p.puntos !== undefined) mensaje += `  Puntos: ${p.puntos}\n`;
+      mensaje += `\n`;
+    });
+
+    const accion = prompt(mensaje + '\nOpciones:\n1 = Agregar participante\n2 = Marcar pago\n3 = Eliminar participante\n0 = Salir');
+    
+    if (accion === '1') {
+      await agregarParticipanteManual(torneoId);
+    } else if (accion === '2') {
+      const email = prompt('Email del participante a marcar como pagado:');
+      if (email) await marcarPagadoParticipante(torneoId, email);
+    } else if (accion === '3') {
+      const email = prompt('Email del participante a eliminar:');
+      if (email && confirm(`Eliminar a ${email}?`)) {
+        await eliminarParticipante(torneoId, email);
+      }
+    }
+  } catch (err) {
+    alert('Error al cargar participantes');
+    console.error(err);
+  }
+}
+
+async function agregarParticipanteManual(torneoId) {
+  const email = prompt('Email del participante:');
+  if (!email) return;
+  
+  const nombre = prompt('Nombre completo:');
+  if (!nombre) return;
+  
+  const pareja_email = prompt('Email de la pareja (opcional, dejar vacío si no aplica):');
+  const pareja_nombre = pareja_email ? prompt('Nombre de la pareja:') : null;
+  const nivel = prompt('Nivel (principiante/intermedio/avanzado/profesional):', 'intermedio');
+  const pagado = confirm('¿Ya pagó la inscripción?');
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/participante`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      },
+      body: JSON.stringify({ email, nombre, pareja_email, pareja_nombre, nivel, pagado })
+    });
+
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert('Participante agregado');
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo agregar'));
+    }
+  } catch (err) {
+    alert('Error al agregar participante');
+  }
+}
+
+async function marcarPagadoParticipante(torneoId, email) {
+  try {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/participantes/${email}/pagar`, {
+      method: 'PATCH',
+      headers: { 'x-admin-token': state.token }
+    });
+
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert('Marcado como pagado');
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo marcar'));
+    }
+  } catch (err) {
+    alert('Error al marcar como pagado');
+  }
+}
+
+async function eliminarParticipante(torneoId, email) {
+  try {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/participante/${email}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-token': state.token }
+    });
+
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert('Participante eliminado');
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo eliminar'));
+    }
+  } catch (err) {
+    alert('Error al eliminar participante');
+  }
+}
+
+async function generarBracket(torneoId) {
+  if (!confirm('Generar bracket automáticamente?\n\nEsto creará todos los partidos según el tipo de torneo.')) return;
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/generar-bracket`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': state.token
+      }
+    });
+
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert(`Bracket generado!\n\n${data.total_partidos} partidos creados`);
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo generar'));
+    }
+  } catch (err) {
+    alert('Error al generar bracket');
+  }
+}
+
+async function gestionarPartidos(torneoId) {
+  try {
+    const response = await fetch(API_BASE + `/api/torneos/${torneoId}`);
+    const torneo = await response.json();
+
+    if (!torneo.partidos || torneo.partidos.length === 0) {
+      alert('No hay partidos generados');
+      return;
+    }
+
+    let mensaje = `PARTIDOS DEL TORNEO\n`;
+    mensaje += `═══════════════════════\n\n`;
+    
+    // Agrupar por ronda
+    const porRonda = {};
+    torneo.partidos.forEach(p => {
+      if (!porRonda[p.ronda]) porRonda[p.ronda] = [];
+      porRonda[p.ronda].push(p);
+    });
+
+    Object.keys(porRonda).forEach(ronda => {
+      mensaje += ` ${ronda.toUpperCase()}\n`;
+      porRonda[ronda].forEach(p => {
+        const eq1 = p.equipo1_nombres ? p.equipo1_nombres.join(' + ') : 'TBD';
+        const eq2 = p.equipo2_nombres ? p.equipo2_nombres.join(' + ') : 'TBD';
+        const resultado = p.estado === 'finalizado' 
+          ? ` → ${p.resultado_equipo1}-${p.resultado_equipo2}` 
+          : ` (${p.estado})`;
+        mensaje += `  ${p.id}. ${eq1} vs ${eq2}${resultado}\n`;
+      });
+      mensaje += `\n`;
+    });
+
+    const partidoId = prompt(mensaje + '\nIngresa el ID del partido para registrar resultado (o 0 para salir):');
+    
+    if (partidoId && partidoId !== '0') {
+      await registrarResultado(torneoId, parseInt(partidoId));
+    }
+  } catch (err) {
+    alert('Error al cargar partidos');
+  }
+}
+
+async function registrarResultado(torneoId, partidoId) {
+  const resultado_equipo1 = parseInt(prompt('Sets ganados por Equipo 1:'));
+  const resultado_equipo2 = parseInt(prompt('Sets ganados por Equipo 2:'));
+  
+  if (isNaN(resultado_equipo1) || isNaN(resultado_equipo2)) {
+    alert('Resultados inválidos');
+    return;
+  }
+
+  const ganador = resultado_equipo1 > resultado_equipo2 ? 'equipo1' : 'equipo2';
+  
+  // Sets detallados
+  const sets_detalle = [];
+  const totalSets = resultado_equipo1 + resultado_equipo2;
+  
+  for (let i = 0; i < totalSets; i++) {
+    const eq1 = parseInt(prompt(`Set ${i+1} - Puntos Equipo 1:`));
+    const eq2 = parseInt(prompt(`Set ${i+1} - Puntos Equipo 2:`));
+    sets_detalle.push({ eq1, eq2 });
+  }
+
+  const cancha = parseInt(prompt('Cancha donde se jugó (1, 2 o 3):', '1'));
+  const fecha = prompt('Fecha (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  const hora = prompt('Hora (HH:MM):', '18:00');
+
+  try {
+    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/resultado`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-admin-token': state.token
       },
       body: JSON.stringify({
-        nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
-        precio_inscripcion, max_participantes, min_participantes,
-        imagen, reglas, premios
+        partido_id: partidoId,
+        resultado_equipo1,
+        resultado_equipo2,
+        sets_detalle,
+        ganador,
+        cancha,
+        fecha,
+        hora
       })
     });
 
-    alert('Torneo creado exitosamente');
-    document.getElementById('torneoNombre').value = '';
-    document.getElementById('torneoDescripcion').value = '';
-    document.getElementById('torneoFechaInicio').value = '';
-    document.getElementById('torneoFechaFin').value = '';
-    document.getElementById('torneoHoraInicio').value = '';
-    document.getElementById('torneoPrecio').value = '0';
-    document.getElementById('torneoImagen').value = '';
-    document.getElementById('torneoReglas').value = '';
-    document.getElementById('torneoPremios').value = '';
-    await loadAllData();
-  } catch (err) {
-    alert('Error al crear torneo');
-  }
-}
-
-async function editarTorneo(id) {
-  const torneo = state.torneos.find(t => t.id === id);
-  if (!torneo) return;
-
-  const nuevoEstado = prompt('Nuevo estado (abierto/cerrado/en-curso/finalizado):', torneo.estado);
-  if (!nuevoEstado || !['abierto','cerrado','en-curso','finalizado'].includes(nuevoEstado)) {
-    alert('Estado invalido');
-    return;
-  }
-
-  try {
-    await fetch(API_BASE + `/api/admin/torneos/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': state.token
-      },
-      body: JSON.stringify({ estado: nuevoEstado })
-    });
-
-    alert('Torneo actualizado');
-    await loadAllData();
-  } catch (err) {
-    alert('Error al actualizar torneo');
-  }
-}
-
-async function eliminarTorneo(id) {
-  if (!confirm('Eliminar este torneo? Se eliminaran todos los participantes y partidos asociados.')) return;
-
-  try {
-    await fetch(API_BASE + `/api/admin/torneos/${id}`, {
-      method: 'DELETE',
-      headers: { 'x-admin-token': state.token }
-    });
-    alert('Torneo eliminado');
-    await loadAllData();
-  } catch (err) {
-    alert('Error al eliminar torneo');
-  }
-}
-
-async function verParticipantesTorneo(torneoId) {
-  try {
-    const response = await fetch(API_BASE + `/api/torneos/${torneoId}`);
-    const torneo = await response.json();
-
-    if (!torneo.participantes || torneo.participantes.length === 0) {
-      alert('No hay participantes inscritos');
-      return;
+    const data = await response.json();
+    
+    if (data.ok) {
+      alert('Resultado registrado!');
+      await loadAllData();
+    } else {
+      alert('Error: ' + (data.msg || 'No se pudo registrar'));
     }
-
-    let mensaje = `Participantes de ${torneo.nombre}:\n\n`;
-    torneo.participantes.forEach((p, i) => {
-      mensaje += `${i + 1}. ${p.nombre} (${p.email})`;
-      if (p.pareja_nombre) mensaje += ` + ${p.pareja_nombre}`;
-      mensaje += ` - ${p.pagado ? 'PAGADO' : 'PENDIENTE'}\n`;
-    });
-
-    alert(mensaje);
   } catch (err) {
-    alert('Error al cargar participantes');
+    alert('Error al registrar resultado');
   }
 }
+
+// ==================== CONFIG Y REPORTES ====================
 
 async function cargarConfigActual() {
   try {
@@ -980,5 +1323,6 @@ function updateStats() {
   const filtroLabel = document.getElementById('filtroTotalLabel');
   if (filtroLabel) {
     filtroLabel.textContent = filtroTexto;
+
   }
 }
