@@ -885,7 +885,7 @@ app.get('/api/server-time', (req, res) => {
 });
 
 // REGISTRAR RUTAS DE TORNEOS
-torneosRoutes(app);
+torneosRoutes(app, pool);
 
 // INICIAR SERVIDOR
 app.listen(PORT, '0.0.0.0', async () => {

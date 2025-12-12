@@ -1,6 +1,5 @@
 // routes/torneos.js
 import { nanoid } from 'nanoid';
-import { pool } from '../server.js';
 
 // ==================== FUNCIONES AUXILIARES ====================
 
@@ -9,7 +8,7 @@ function generarBracketEliminacionSimple(participantes) {
   const n = participantes.length;
   const rondas = Math.ceil(Math.log2(n));
   const partidos = [];
-  
+
   // Determinar nombres de rondas
   const nombresRondas = {
     1: 'Final',
@@ -18,10 +17,10 @@ function generarBracketEliminacionSimple(participantes) {
     4: 'Octavos de Final',
     5: 'Dieciseisavos de Final'
   };
-  
+
   let rondaActual = rondas;
   let equiposActuales = [...participantes];
-  
+
   // Generar primera ronda
   for (let i = 0; i < equiposActuales.length; i += 2) {
     if (i + 1 < equiposActuales.length) {
@@ -33,7 +32,7 @@ function generarBracketEliminacionSimple(participantes) {
       });
     }
   }
-  
+
   return partidos;
 }
 
@@ -41,7 +40,7 @@ function generarBracketEliminacionSimple(participantes) {
 function generarBracketRoundRobin(participantes) {
   const partidos = [];
   const n = participantes.length;
-  
+
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       partidos.push({
@@ -52,7 +51,7 @@ function generarBracketRoundRobin(participantes) {
       });
     }
   }
-  
+
   return partidos;
 }
 
@@ -60,7 +59,7 @@ function generarBracketRoundRobin(participantes) {
 function generarBracketAmericano(participantes, numRondas = 3) {
   const partidos = [];
   const n = participantes.length;
-  
+
   for (let ronda = 1; ronda <= numRondas; ronda++) {
     // Rotación de parejas
     const equipos = [];
@@ -69,7 +68,7 @@ function generarBracketAmericano(participantes, numRondas = 3) {
       const idx2 = (i + 1 + ronda - 1) % n;
       equipos.push([participantes[idx1], participantes[idx2]]);
     }
-    
+
     // Generar partidos de la ronda
     for (let i = 0; i < equipos.length; i += 2) {
       if (i + 1 < equipos.length) {
@@ -82,7 +81,7 @@ function generarBracketAmericano(participantes, numRondas = 3) {
       }
     }
   }
-  
+
   return partidos;
 }
 
@@ -90,11 +89,10 @@ function generarBracketAmericano(participantes, numRondas = 3) {
 function generarBracketReyPala(participantes, numRondas = 5) {
   const partidos = [];
   const n = participantes.length;
-  
+
   for (let ronda = 1; ronda <= numRondas; ronda++) {
     // Parejas aleatorias cada ronda
     const shuffled = [...participantes].sort(() => Math.random() - 0.5);
-    
     for (let i = 0; i < n; i += 4) {
       if (i + 3 < n) {
         partidos.push({
@@ -106,19 +104,29 @@ function generarBracketReyPala(participantes, numRondas = 5) {
       }
     }
   }
-  
+
   return partidos;
+}
+
+// ==================== MIDDLEWARE ====================
+
+function verificarAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (!token || token !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ ok: false, msg: 'No autorizado' });
+  }
+  next();
 }
 
 // ==================== ENDPOINTS PÚBLICOS ====================
 
-export default function(app) {
-  
+export default function(app, pool) {
+
   // GET todos los torneos
   app.get('/api/torneos', async (req, res) => {
     try {
       const result = await pool.query(`
-        SELECT t.*, 
+        SELECT t.*,
           COALESCE(json_agg(
             json_build_object(
               'email', tp.email,
@@ -136,7 +144,6 @@ export default function(app) {
         GROUP BY t.id
         ORDER BY t.fecha_inicio ASC
       `);
-      
       res.json(result.rows);
     } catch (err) {
       console.error('Error GET torneos:', err);
@@ -148,7 +155,7 @@ export default function(app) {
   app.get('/api/torneos/:id', async (req, res) => {
     try {
       const torneo = await pool.query(`
-        SELECT t.*, 
+        SELECT t.*,
           COALESCE(json_agg(
             DISTINCT jsonb_build_object(
               'email', tp.email,
@@ -167,16 +174,16 @@ export default function(app) {
         WHERE t.id = $1
         GROUP BY t.id
       `, [req.params.id]);
-      
+
       if (torneo.rows.length === 0) {
         return res.status(404).json({ ok: false, msg: 'Torneo no encontrado' });
       }
 
       // Obtener partidos
       const partidos = await pool.query(`
-        SELECT * FROM torneo_partidos 
-        WHERE torneo_id = $1 
-        ORDER BY 
+        SELECT * FROM torneo_partidos
+        WHERE torneo_id = $1
+        ORDER BY
           CASE ronda
             WHEN 'Final' THEN 1
             WHEN 'Semifinal' THEN 2
@@ -186,10 +193,9 @@ export default function(app) {
           END,
           numero_partido
       `, [req.params.id]);
-      
+
       const data = torneo.rows[0];
       data.partidos = partidos.rows;
-      
       res.json(data);
     } catch (err) {
       console.error('Error GET torneo:', err);
@@ -201,9 +207,9 @@ export default function(app) {
   app.get('/api/torneos/:id/bracket', async (req, res) => {
     try {
       const partidos = await pool.query(`
-        SELECT * FROM torneo_partidos 
-        WHERE torneo_id = $1 
-        ORDER BY 
+        SELECT * FROM torneo_partidos
+        WHERE torneo_id = $1
+        ORDER BY
           CASE ronda
             WHEN 'Final' THEN 1
             WHEN 'Semifinal' THEN 2
@@ -220,11 +226,32 @@ export default function(app) {
         if (!bracket[p.ronda]) bracket[p.ronda] = [];
         bracket[p.ronda].push(p);
       });
-      
+
       res.json({ bracket, partidos: partidos.rows });
     } catch (err) {
       console.error('Error GET bracket:', err);
       res.status(500).json({ ok: false, msg: 'Error al obtener bracket' });
+    }
+  });
+
+  // GET tabla de posiciones (para torneos tipo liga/round-robin)
+  app.get('/api/torneos/:id/tabla', async (req, res) => {
+    try {
+      const tabla = await pool.query(`
+        SELECT
+          nombre, email, pareja_nombre,
+          puntos, partidos_ganados, partidos_perdidos,
+          sets_favor, sets_contra,
+          (sets_favor - sets_contra) as diferencia_sets
+        FROM torneo_participantes
+        WHERE torneo_id = $1
+        ORDER BY puntos DESC, diferencia_sets DESC, sets_favor DESC
+      `, [req.params.id]);
+
+      res.json(tabla.rows);
+    } catch (err) {
+      console.error('Error GET tabla:', err);
+      res.status(500).json({ ok: false, msg: 'Error' });
     }
   });
 
@@ -258,7 +285,7 @@ export default function(app) {
         'SELECT COUNT(*) as total FROM torneo_participantes WHERE torneo_id = $1',
         [req.params.id]
       );
-      
+
       if (parseInt(participantes.rows[0].total) >= t.max_participantes) {
         return res.status(400).json({ ok: false, msg: 'Torneo lleno' });
       }
@@ -267,7 +294,7 @@ export default function(app) {
         'SELECT * FROM torneo_participantes WHERE torneo_id = $1 AND email = $2',
         [req.params.id, usuario.email]
       );
-      
+
       if (yaInscrito.rows.length > 0) {
         return res.status(400).json({ ok: false, msg: 'Ya estás inscrito' });
       }
@@ -284,103 +311,63 @@ export default function(app) {
       await pool.query(`
         INSERT INTO torneo_participantes (
           torneo_id, email, nombre, pareja_email, pareja_nombre, nivel, pagado
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, false)
+        ) VALUES ($1, $2, $3, $4, $5, $6, false)
       `, [
-        req.params.id, usuario.email, usuario.nombre, 
-        parejaData.email, parejaData.nombre, nivel || 'intermedio'
+        req.params.id,
+        usuario.email,
+        usuario.nombre,
+        parejaData.email,
+        parejaData.nombre,
+        nivel || 'intermedio'
       ]);
 
       res.json({ ok: true, msg: 'Inscripción exitosa' });
     } catch (err) {
-      console.error('Error inscribir torneo:', err);
+      console.error('Error inscribir:', err);
       res.status(500).json({ ok: false, msg: 'Error al inscribirse' });
-    }
-  });
-
-  // DELETE cancelar inscripción
-  app.delete('/api/torneos/:id/inscripcion', async (req, res) => {
-    try {
-      const token = req.headers['x-token'];
-      if (!token) {
-        return res.status(401).json({ ok: false, msg: 'No autorizado' });
-      }
-
-      const user = await pool.query('SELECT * FROM usuarios WHERE token = $1', [token]);
-      if (user.rows.length === 0) {
-        return res.status(401).json({ ok: false, msg: 'Token inválido' });
-      }
-
-      await pool.query(
-        'DELETE FROM torneo_participantes WHERE torneo_id = $1 AND email = $2',
-        [req.params.id, user.rows[0].email]
-      );
-
-      res.json({ ok: true, msg: 'Inscripción cancelada' });
-    } catch (err) {
-      console.error('Error cancelar inscripción:', err);
-      res.status(500).json({ ok: false, msg: 'Error al cancelar' });
     }
   });
 
   // ==================== ENDPOINTS ADMIN ====================
 
-  // Middleware de verificación admin
-  const verificarAdmin = (req, res, next) => {
-    const adminToken = req.headers['x-admin-token'];
-    if (adminToken !== process.env.ADMIN_TOKEN && adminToken !== 'distritoadmin23') {
-      return res.status(403).json({ ok: false, msg: 'No autorizado' });
-    }
-    next();
-  };
-
-  // GET todos los torneos (ADMIN)
-  app.get('/api/admin/torneos', verificarAdmin, async (req, res) => {
-    try {
-      const result = await pool.query(`
-        SELECT t.*, 
-          (SELECT COUNT(*) FROM torneo_participantes WHERE torneo_id = t.id) as total_participantes,
-          (SELECT COUNT(*) FROM torneo_partidos WHERE torneo_id = t.id) as total_partidos
-        FROM torneos t
-        ORDER BY t.created_at DESC
-      `);
-      
-      res.json(result.rows);
-    } catch (err) {
-      console.error('Error GET admin torneos:', err);
-      res.status(500).json({ ok: false, msg: 'Error' });
-    }
-  });
-
-  // POST crear torneo con imagen base64 (ADMIN)
+  // POST crear torneo (ADMIN)
   app.post('/api/admin/torneos', verificarAdmin, async (req, res) => {
     try {
       const {
-        nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
-        precio_inscripcion, max_participantes, min_participantes, canchas,
-        imagen_base64, imagen_nombre, reglas, premios, duracion_partidos, formato_sets
+        nombre,
+        tipo,
+        descripcion,
+        fecha_inicio,
+        fecha_fin,
+        hora_inicio,
+        precio_inscripcion,
+        max_participantes,
+        min_participantes,
+        canchas,
+        reglas,
+        premios,
+        imagen_base64,
+        imagen_nombre
       } = req.body;
 
       const id = nanoid();
-      
+
       await pool.query(`
         INSERT INTO torneos (
           id, nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
           precio_inscripcion, max_participantes, min_participantes, canchas,
-          imagen_base64, imagen_nombre, reglas, premios, estado, 
-          duracion_partidos, formato_sets
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'abierto', $16, $17)
+          reglas, premios, imagen_base64, imagen_nombre, estado
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'abierto')
       `, [
         id, nombre, tipo, descripcion, fecha_inicio, fecha_fin || null, hora_inicio || null,
         precio_inscripcion || 0, max_participantes || 16, min_participantes || 4,
-        canchas || [1, 2, 3], imagen_base64 || null, imagen_nombre || null, 
-        reglas || null, premios || null, duracion_partidos || 90, formato_sets || '2/3'
+        canchas || [], reglas || '', premios || '', imagen_base64 || null, imagen_nombre || null
       ]);
 
-      res.json({ ok: true, msg: 'Torneo creado', torneoId: id });
+      res.json({ ok: true, id, msg: 'Torneo creado exitosamente' });
     } catch (err) {
       console.error('Error crear torneo:', err);
-      res.status(500).json({ ok: false, msg: 'Error al crear torneo' });
+      res.status(500).json({ ok: false, msg: 'Error al crear torneo: ' + err.message });
     }
   });
 
@@ -388,33 +375,44 @@ export default function(app) {
   app.put('/api/admin/torneos/:id', verificarAdmin, async (req, res) => {
     try {
       const {
-        nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
-        precio_inscripcion, max_participantes, min_participantes, estado,
-        imagen_base64, imagen_nombre, reglas, premios
+        nombre,
+        tipo,
+        descripcion,
+        fecha_inicio,
+        fecha_fin,
+        hora_inicio,
+        precio_inscripcion,
+        max_participantes,
+        min_participantes,
+        canchas,
+        reglas,
+        premios,
+        imagen_base64,
+        imagen_nombre
       } = req.body;
 
       await pool.query(`
         UPDATE torneos SET
-          nombre = COALESCE($1, nombre),
-          tipo = COALESCE($2, tipo),
-          descripcion = COALESCE($3, descripcion),
-          fecha_inicio = COALESCE($4, fecha_inicio),
-          fecha_fin = COALESCE($5, fecha_fin),
-          hora_inicio = COALESCE($6, hora_inicio),
-          precio_inscripcion = COALESCE($7, precio_inscripcion),
-          max_participantes = COALESCE($8, max_participantes),
-          min_participantes = COALESCE($9, min_participantes),
-          estado = COALESCE($10, estado),
-          imagen_base64 = COALESCE($11, imagen_base64),
-          imagen_nombre = COALESCE($12, imagen_nombre),
-          reglas = COALESCE($13, reglas),
-          premios = COALESCE($14, premios),
+          nombre = $1,
+          tipo = $2,
+          descripcion = $3,
+          fecha_inicio = $4,
+          fecha_fin = $5,
+          hora_inicio = $6,
+          precio_inscripcion = $7,
+          max_participantes = $8,
+          min_participantes = $9,
+          canchas = $10,
+          reglas = $11,
+          premios = $12,
+          imagen_base64 = $13,
+          imagen_nombre = $14,
           updated_at = NOW()
         WHERE id = $15
       `, [
         nombre, tipo, descripcion, fecha_inicio, fecha_fin, hora_inicio,
-        precio_inscripcion, max_participantes, min_participantes, estado,
-        imagen_base64, imagen_nombre, reglas, premios, req.params.id
+        precio_inscripcion, max_participantes, min_participantes, canchas,
+        reglas, premios, imagen_base64, imagen_nombre, req.params.id
       ]);
 
       res.json({ ok: true, msg: 'Torneo actualizado' });
@@ -435,89 +433,37 @@ export default function(app) {
     }
   });
 
-  // POST agregar participante manualmente (ADMIN)
-  app.post('/api/admin/torneos/:id/participante', verificarAdmin, async (req, res) => {
+  // PATCH cambiar estado de torneo (ADMIN)
+  app.patch('/api/admin/torneos/:id/estado', verificarAdmin, async (req, res) => {
     try {
-      const { email, nombre, pareja_email, pareja_nombre, nivel, pagado } = req.body;
+      const { estado } = req.body;
 
-      // Verificar que el torneo existe
-      const torneo = await pool.query('SELECT * FROM torneos WHERE id = $1', [req.params.id]);
-      if (torneo.rows.length === 0) {
-        return res.status(404).json({ ok: false, msg: 'Torneo no encontrado' });
+      if (!['abierto', 'cerrado', 'en-curso', 'finalizado'].includes(estado)) {
+        return res.status(400).json({ ok: false, msg: 'Estado inválido' });
       }
 
-      // Verificar si ya está inscrito
-      const existe = await pool.query(
-        'SELECT * FROM torneo_participantes WHERE torneo_id = $1 AND email = $2',
-        [req.params.id, email]
-      );
-      
-      if (existe.rows.length > 0) {
-        return res.status(400).json({ ok: false, msg: 'Ya está inscrito' });
-      }
-
-      await pool.query(`
-        INSERT INTO torneo_participantes (
-          torneo_id, email, nombre, pareja_email, pareja_nombre, nivel, pagado
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        req.params.id, email, nombre, 
-        pareja_email || null, pareja_nombre || null, 
-        nivel || 'intermedio', pagado || false
-      ]);
-
-      res.json({ ok: true, msg: 'Participante agregado' });
-    } catch (err) {
-      console.error('Error agregar participante:', err);
-      res.status(500).json({ ok: false, msg: 'Error al agregar' });
-    }
-  });
-
-  // DELETE eliminar participante (ADMIN)
-  app.delete('/api/admin/torneos/:id/participante/:email', verificarAdmin, async (req, res) => {
-    try {
       await pool.query(
-        'DELETE FROM torneo_participantes WHERE torneo_id = $1 AND email = $2',
-        [req.params.id, req.params.email]
+        'UPDATE torneos SET estado = $1, updated_at = NOW() WHERE id = $2',
+        [estado, req.params.id]
       );
-      res.json({ ok: true, msg: 'Participante eliminado' });
+
+      res.json({ ok: true, msg: 'Estado actualizado' });
     } catch (err) {
-      console.error('Error eliminar participante:', err);
+      console.error('Error cambiar estado:', err);
       res.status(500).json({ ok: false, msg: 'Error' });
     }
   });
 
-  // PATCH marcar participante como pagado (ADMIN)
-  app.patch('/api/admin/torneos/:torneoId/participantes/:email/pagar', verificarAdmin, async (req, res) => {
-    try {
-      await pool.query(`
-        UPDATE torneo_participantes 
-        SET pagado = true 
-        WHERE torneo_id = $1 AND email = $2
-      `, [req.params.torneoId, req.params.email]);
-
-      res.json({ ok: true, msg: 'Marcado como pagado' });
-    } catch (err) {
-      console.error('Error marcar pagado:', err);
-      res.status(500).json({ ok: false, msg: 'Error' });
-    }
-  });
-
-  // POST generar bracket automático (ADMIN)
+  // POST generar bracket (ADMIN) - CORREGIDO
   app.post('/api/admin/torneos/:id/generar-bracket', verificarAdmin, async (req, res) => {
     try {
       const torneo = await pool.query('SELECT * FROM torneos WHERE id = $1', [req.params.id]);
+
       if (torneo.rows.length === 0) {
         return res.status(404).json({ ok: false, msg: 'Torneo no encontrado' });
       }
 
       const t = torneo.rows[0];
-      
-      // Verificar que ya está cerrado
-      if (t.estado === 'abierto') {
-        return res.status(400).json({ ok: false, msg: 'Debes cerrar inscripciones primero' });
-      }
 
       // Obtener participantes
       const participantes = await pool.query(
@@ -526,9 +472,9 @@ export default function(app) {
       );
 
       if (participantes.rows.length < t.min_participantes) {
-        return res.status(400).json({ 
-          ok: false, 
-          msg: `Mínimo ${t.min_participantes} participantes requeridos` 
+        return res.status(400).json({
+          ok: false,
+          msg: `Mínimo ${t.min_participantes} participantes requeridos`
         });
       }
 
@@ -545,82 +491,76 @@ export default function(app) {
         case 'mixto':
           partidos = generarBracketEliminacionSimple(parts);
           break;
-          
         case 'round-robin':
         case 'liga':
           partidos = generarBracketRoundRobin(parts);
           break;
-          
         case 'americano':
           partidos = generarBracketAmericano(parts, 4);
           break;
-          
         case 'rey-pala':
           partidos = generarBracketReyPala(parts, 5);
           break;
-          
         default:
           partidos = generarBracketEliminacionSimple(parts);
       }
 
-// Insertar partidos en BD
-for (const p of partidos) {
-    // Convertir a array si no lo es
-    const eq1 = Array.isArray(p.equipo1) ? p.equipo1 : [p.equipo1];
-    const eq2 = Array.isArray(p.equipo2) ? p.equipo2 : [p.equipo2];
-    
-    // Filtrar nulls y extraer datos
-    const eq1Clean = eq1.filter(e => e && e.nombre);
-    const eq2Clean = eq2.filter(e => e && e.nombre);
-    
-    // Arrays de nombres
-    const eq1Nombres = eq1Clean.map(e => e.nombre);
-    const eq2Nombres = eq2Clean.map(e => e.nombre);
-    
-    console.log(`Insertando partido ${p.numeropartido}:`, {
-        eq1Nombres,
-        eq2Nombres
-    });
-    
-    await pool.query(`
-        INSERT INTO torneopartidos (torneoid, ronda, numeropartido, 
-            equipo1email1, equipo1email2, equipo2email1, equipo2email2, 
-            equipo1nombres, equipo2nombres, estado)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
-    `, [
-        req.params.id,
-        p.ronda,
-        p.numeropartido,
-        eq1Clean[0]?.email || null,
-        eq1Clean[1]?.email || null,
-        eq2Clean[0]?.email || null,
-        eq2Clean[1]?.email || null,
-        eq1Nombres,  // Ya es un array
-        eq2Nombres   // Ya es un array
-    ]);
-}
+      // Insertar partidos en BD - CORREGIDO
+      for (const p of partidos) {
+        // Convertir a array si no lo es
+        const eq1 = Array.isArray(p.equipo1) ? p.equipo1 : [p.equipo1];
+        const eq2 = Array.isArray(p.equipo2) ? p.equipo2 : [p.equipo2];
+
+        // Filtrar nulls y extraer datos
+        const eq1Clean = eq1.filter(e => e && e.nombre);
+        const eq2Clean = eq2.filter(e => e && e.nombre);
+
+        // Arrays de nombres
+        const eq1Nombres = eq1Clean.map(e => e.nombre);
+        const eq2Nombres = eq2Clean.map(e => e.nombre);
+
+        // Usar sintaxis correcta de PostgreSQL para arrays
+        await pool.query(`
+          INSERT INTO torneo_partidos (
+            torneo_id, ronda, numero_partido,
+            equipo1_email1, equipo1_email2, equipo2_email1, equipo2_email2,
+            equipo1_nombres, equipo2_nombres, estado
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9::text[], 'pendiente')
+        `, [
+          req.params.id,
+          p.ronda,
+          p.numero_partido,
+          eq1Clean[0]?.email || null,
+          eq1Clean[1]?.email || null,
+          eq2Clean[0]?.email || null,
+          eq2Clean[1]?.email || null,
+          eq1Nombres,
+          eq2Nombres
+        ]);
+      }
 
       // Marcar bracket como generado
       await pool.query(
-        'UPDATE torneos SET bracket_generado = true, estado = $1 WHERE id = $2',
+        'UPDATE torneos SET bracket_generado = true, estado = $1, updated_at = NOW() WHERE id = $2',
         ['en-curso', req.params.id]
       );
 
-      res.json({ ok: true, msg: 'Bracket generado', total_partidos: partidos.length });
+      res.json({ ok: true, msg: 'Bracket generado exitosamente', total_partidos: partidos.length });
     } catch (err) {
       console.error('Error generar bracket:', err);
-      res.status(500).json({ ok: false, msg: 'Error al generar bracket' });
+      res.status(500).json({ ok: false, msg: 'Error al generar bracket: ' + err.message });
     }
   });
 
   // POST registrar resultado detallado (ADMIN)
   app.post('/api/admin/torneos/:id/resultado', verificarAdmin, async (req, res) => {
     try {
-      const { 
-        partido_id, 
-        resultado_equipo1, 
-        resultado_equipo2, 
-        sets_detalle, 
+      const {
+        partido_id,
+        resultado_equipo1,
+        resultado_equipo2,
+        sets_detalle,
         ganador,
         cancha,
         fecha,
@@ -629,8 +569,8 @@ for (const p of partidos) {
 
       // Actualizar partido
       await pool.query(`
-        UPDATE torneo_partidos 
-        SET 
+        UPDATE torneo_partidos
+        SET
           resultado_equipo1 = $1,
           resultado_equipo2 = $2,
           sets_detalle = $3,
@@ -642,8 +582,8 @@ for (const p of partidos) {
           updated_at = NOW()
         WHERE id = $8
       `, [
-        resultado_equipo1, 
-        resultado_equipo2, 
+        resultado_equipo1,
+        resultado_equipo2,
         JSON.stringify(sets_detalle),
         ganador,
         cancha,
@@ -660,7 +600,7 @@ for (const p of partidos) {
         // Equipo 1 gana
         if (p.equipo1_email1) {
           await pool.query(`
-            UPDATE torneo_participantes 
+            UPDATE torneo_participantes
             SET partidos_ganados = partidos_ganados + 1,
                 sets_favor = sets_favor + $1,
                 sets_contra = sets_contra + $2,
@@ -668,21 +608,43 @@ for (const p of partidos) {
             WHERE torneo_id = $3 AND email = $4
           `, [resultado_equipo1, resultado_equipo2, req.params.id, p.equipo1_email1]);
         }
+
+        if (p.equipo1_email2) {
+          await pool.query(`
+            UPDATE torneo_participantes
+            SET partidos_ganados = partidos_ganados + 1,
+                sets_favor = sets_favor + $1,
+                sets_contra = sets_contra + $2,
+                puntos = puntos + 3
+            WHERE torneo_id = $3 AND email = $4
+          `, [resultado_equipo1, resultado_equipo2, req.params.id, p.equipo1_email2]);
+        }
+
         // Equipo 2 pierde
         if (p.equipo2_email1) {
           await pool.query(`
-            UPDATE torneo_participantes 
+            UPDATE torneo_participantes
             SET partidos_perdidos = partidos_perdidos + 1,
                 sets_favor = sets_favor + $1,
                 sets_contra = sets_contra + $2
             WHERE torneo_id = $3 AND email = $4
           `, [resultado_equipo2, resultado_equipo1, req.params.id, p.equipo2_email1]);
         }
-      } else {
+
+        if (p.equipo2_email2) {
+          await pool.query(`
+            UPDATE torneo_participantes
+            SET partidos_perdidos = partidos_perdidos + 1,
+                sets_favor = sets_favor + $1,
+                sets_contra = sets_contra + $2
+            WHERE torneo_id = $3 AND email = $4
+          `, [resultado_equipo2, resultado_equipo1, req.params.id, p.equipo2_email2]);
+        }
+      } else if (ganador === 'equipo2') {
         // Equipo 2 gana (viceversa)
         if (p.equipo2_email1) {
           await pool.query(`
-            UPDATE torneo_participantes 
+            UPDATE torneo_participantes
             SET partidos_ganados = partidos_ganados + 1,
                 sets_favor = sets_favor + $1,
                 sets_contra = sets_contra + $2,
@@ -690,14 +652,36 @@ for (const p of partidos) {
             WHERE torneo_id = $3 AND email = $4
           `, [resultado_equipo2, resultado_equipo1, req.params.id, p.equipo2_email1]);
         }
+
+        if (p.equipo2_email2) {
+          await pool.query(`
+            UPDATE torneo_participantes
+            SET partidos_ganados = partidos_ganados + 1,
+                sets_favor = sets_favor + $1,
+                sets_contra = sets_contra + $2,
+                puntos = puntos + 3
+            WHERE torneo_id = $3 AND email = $4
+          `, [resultado_equipo2, resultado_equipo1, req.params.id, p.equipo2_email2]);
+        }
+
         if (p.equipo1_email1) {
           await pool.query(`
-            UPDATE torneo_participantes 
+            UPDATE torneo_participantes
             SET partidos_perdidos = partidos_perdidos + 1,
                 sets_favor = sets_favor + $1,
                 sets_contra = sets_contra + $2
             WHERE torneo_id = $3 AND email = $4
           `, [resultado_equipo1, resultado_equipo2, req.params.id, p.equipo1_email1]);
+        }
+
+        if (p.equipo1_email2) {
+          await pool.query(`
+            UPDATE torneo_participantes
+            SET partidos_perdidos = partidos_perdidos + 1,
+                sets_favor = sets_favor + $1,
+                sets_contra = sets_contra + $2
+            WHERE torneo_id = $3 AND email = $4
+          `, [resultado_equipo1, resultado_equipo2, req.params.id, p.equipo1_email2]);
         }
       }
 
@@ -708,23 +692,34 @@ for (const p of partidos) {
     }
   });
 
-  // GET tabla de posiciones (para torneos tipo liga/round-robin)
-  app.get('/api/torneos/:id/tabla', async (req, res) => {
+  // PATCH marcar pago de participante (ADMIN)
+  app.patch('/api/admin/torneos/:id/participantes/:email/pago', verificarAdmin, async (req, res) => {
     try {
-      const tabla = await pool.query(`
-        SELECT 
-          nombre, email, pareja_nombre,
-          puntos, partidos_ganados, partidos_perdidos,
-          sets_favor, sets_contra,
-          (sets_favor - sets_contra) as diferencia_sets
-        FROM torneo_participantes
-        WHERE torneo_id = $1
-        ORDER BY puntos DESC, diferencia_sets DESC, sets_favor DESC
-      `, [req.params.id]);
+      const { pagado } = req.body;
 
-      res.json(tabla.rows);
+      await pool.query(
+        'UPDATE torneo_participantes SET pagado = $1 WHERE torneo_id = $2 AND email = $3',
+        [pagado, req.params.id, req.params.email]
+      );
+
+      res.json({ ok: true, msg: 'Estado de pago actualizado' });
     } catch (err) {
-      console.error('Error GET tabla:', err);
+      console.error('Error actualizar pago:', err);
+      res.status(500).json({ ok: false, msg: 'Error' });
+    }
+  });
+
+  // DELETE eliminar participante (ADMIN)
+  app.delete('/api/admin/torneos/:id/participantes/:email', verificarAdmin, async (req, res) => {
+    try {
+      await pool.query(
+        'DELETE FROM torneo_participantes WHERE torneo_id = $1 AND email = $2',
+        [req.params.id, req.params.email]
+      );
+
+      res.json({ ok: true, msg: 'Participante eliminado' });
+    } catch (err) {
+      console.error('Error eliminar participante:', err);
       res.status(500).json({ ok: false, msg: 'Error' });
     }
   });
