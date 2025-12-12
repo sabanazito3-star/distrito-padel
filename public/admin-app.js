@@ -1033,104 +1033,240 @@ async function generarBracket(torneoId) {
   }
 }
 
-async function gestionarPartidos(torneoId) {
-  try {
-    const response = await fetch(API_BASE + `/api/torneos/${torneoId}`);
-    const torneo = await response.json();
-
-    if (!torneo.partidos || torneo.partidos.length === 0) {
-      alert('No hay partidos generados');
-      return;
+async function gestionarPartidostorneoId() {
+    try {
+        const response = await fetch(`${API_BASE}/api/torneos/${torneoId}`);
+        const torneo = await response.json();
+        
+        if (!torneo.partidos || torneo.partidos.length === 0) {
+            alert('No hay partidos generados');
+            return;
+        }
+        
+        // Mostrar vista detallada de partidos
+        mostrarVistaPartidos(torneoId, torneo);
+        
+    } catch (err) {
+        alert('Error al cargar partidos');
     }
-
-    let mensaje = `PARTIDOS DEL TORNEO\n`;
-    mensaje += `═══════════════════════\n\n`;
-    
-    // Agrupar por ronda
-    const porRonda = {};
-    torneo.partidos.forEach(p => {
-      if (!porRonda[p.ronda]) porRonda[p.ronda] = [];
-      porRonda[p.ronda].push(p);
-    });
-
-    Object.keys(porRonda).forEach(ronda => {
-      mensaje += ` ${ronda.toUpperCase()}\n`;
-      porRonda[ronda].forEach(p => {
-        const eq1 = p.equipo1_nombres ? p.equipo1_nombres.join(' + ') : 'TBD';
-        const eq2 = p.equipo2_nombres ? p.equipo2_nombres.join(' + ') : 'TBD';
-        const resultado = p.estado === 'finalizado' 
-          ? ` → ${p.resultado_equipo1}-${p.resultado_equipo2}` 
-          : ` (${p.estado})`;
-        mensaje += `  ${p.id}. ${eq1} vs ${eq2}${resultado}\n`;
-      });
-      mensaje += `\n`;
-    });
-
-    const partidoId = prompt(mensaje + '\nIngresa el ID del partido para registrar resultado (o 0 para salir):');
-    
-    if (partidoId && partidoId !== '0') {
-      await registrarResultado(torneoId, parseInt(partidoId));
-    }
-  } catch (err) {
-    alert('Error al cargar partidos');
-  }
 }
 
-async function registrarResultado(torneoId, partidoId) {
-  const resultado_equipo1 = parseInt(prompt('Sets ganados por Equipo 1:'));
-  const resultado_equipo2 = parseInt(prompt('Sets ganados por Equipo 2:'));
-  
-  if (isNaN(resultado_equipo1) || isNaN(resultado_equipo2)) {
-    alert('Resultados inválidos');
-    return;
-  }
-
-  const ganador = resultado_equipo1 > resultado_equipo2 ? 'equipo1' : 'equipo2';
-  
-  // Sets detallados
-  const sets_detalle = [];
-  const totalSets = resultado_equipo1 + resultado_equipo2;
-  
-  for (let i = 0; i < totalSets; i++) {
-    const eq1 = parseInt(prompt(`Set ${i+1} - Puntos Equipo 1:`));
-    const eq2 = parseInt(prompt(`Set ${i+1} - Puntos Equipo 2:`));
-    sets_detalle.push({ eq1, eq2 });
-  }
-
-  const cancha = parseInt(prompt('Cancha donde se jugó (1, 2 o 3):', '1'));
-  const fecha = prompt('Fecha (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-  const hora = prompt('Hora (HH:MM):', '18:00');
-
-  try {
-    const response = await fetch(API_BASE + `/api/admin/torneos/${torneoId}/resultado`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': state.token
-      },
-      body: JSON.stringify({
-        partido_id: partidoId,
-        resultado_equipo1,
-        resultado_equipo2,
-        sets_detalle,
-        ganador,
-        cancha,
-        fecha,
-        hora
-      })
-    });
-
-    const data = await response.json();
+function mostrarVistaPartidos(torneoId, torneo) {
+    // Crear modal o sección dedicada
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto p-4';
+    modal.id = 'modalPartidos';
     
-    if (data.ok) {
-      alert('Resultado registrado!');
-      await loadAllData();
-    } else {
-      alert('Error: ' + (data.msg || 'No se pudo registrar'));
+    // Agrupar partidos por ronda
+    const porRonda = {};
+    torneo.partidos.forEach(p => {
+        if (!porRonda[p.ronda]) porRonda[p.ronda] = [];
+        porRonda[p.ronda].push(p);
+    });
+    
+    let contenidoHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Partidos - ${torneo.nombre}</h2>
+                <button onclick="cerrarModalPartidos()" class="text-white hover:bg-white hover:text-purple-600 rounded-full p-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-6">
+    `;
+    
+    // Renderizar cada ronda
+    Object.keys(porRonda).forEach(ronda => {
+        contenidoHTML += `
+            <div class="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
+                <h3 class="text-xl font-bold text-purple-700 mb-4">${ronda.toUpperCase()}</h3>
+                <div class="space-y-4">
+        `;
+        
+        porRonda[ronda].forEach(partido => {
+            const eq1 = partido.equipo1nombres ? partido.equipo1nombres.join(' / ') : 'TBD';
+            const eq2 = partido.equipo2nombres ? partido.equipo2nombres.join(' / ') : 'TBD';
+            const estadoClass = {
+                'pendiente': 'bg-yellow-100 text-yellow-700',
+                'en-curso': 'bg-blue-100 text-blue-700',
+                'finalizado': 'bg-green-100 text-green-700'
+            }[partido.estado] || 'bg-gray-100 text-gray-700';
+            
+            const mostrarFormulario = partido.estado !== 'finalizado';
+            
+            contenidoHTML += `
+                <div class="bg-white rounded-lg border-2 p-4 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="font-bold text-lg text-gray-800">${eq1}</span>
+                                ${partido.estado === 'finalizado' ? `<span class="text-2xl font-bold text-purple-600">${partido.resultadoequipo1}</span>` : ''}
+                            </div>
+                            <div class="text-sm text-gray-500 mb-2">VS</div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-lg text-gray-800">${eq2}</span>
+                                ${partido.estado === 'finalizado' ? `<span class="text-2xl font-bold text-purple-600">${partido.resultadoequipo2}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold ${estadoClass}">
+                                ${partido.estado.toUpperCase()}
+                            </span>
+                            ${partido.estado === 'finalizado' && partido.cancha ? `<p class="text-xs text-gray-500 mt-2">Cancha ${partido.cancha}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    ${mostrarFormulario ? `
+                        <div id="form-${partido.id}" class="mt-4 border-t-2 pt-4">
+                            <h4 class="font-bold text-sm text-gray-700 mb-3">Registrar Resultado</h4>
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="block text-xs font-bold mb-1">Sets ${eq1}</label>
+                                    <input type="number" id="sets1-${partido.id}" min="0" max="3" class="w-full px-3 py-2 border-2 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold mb-1">Sets ${eq2}</label>
+                                    <input type="number" id="sets2-${partido.id}" min="0" max="3" class="w-full px-3 py-2 border-2 rounded-lg">
+                                </div>
+                            </div>
+                            
+                            <div id="sets-detalle-${partido.id}" class="mb-3"></div>
+                            
+                            <button onclick="agregarSetDetalle(${partido.id})" class="w-full mb-3 px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
+                                + Agregar Detalle de Set
+                            </button>
+                            
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div>
+                                    <label class="block text-xs font-bold mb-1">Cancha</label>
+                                    <select id="cancha-${partido.id}" class="w-full px-2 py-2 border-2 rounded-lg text-sm">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold mb-1">Fecha</label>
+                                    <input type="date" id="fecha-${partido.id}" value="${new Date().toISOString().split('T')[0]}" class="w-full px-2 py-2 border-2 rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold mb-1">Hora</label>
+                                    <input type="time" id="hora-${partido.id}" value="18:00" class="w-full px-2 py-2 border-2 rounded-lg text-sm">
+                                </div>
+                            </div>
+                            
+                            <button onclick="guardarResultadoPartido(${torneoId}, ${partido.id})" 
+                                class="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-bold hover:shadow-lg">
+                                💾 Guardar Resultado
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        contenidoHTML += `
+                </div>
+            </div>
+        `;
+    });
+    
+    contenidoHTML += `
+            </div>
+        </div>
+    `;
+    
+    modal.innerHTML = contenidoHTML;
+    document.body.appendChild(modal);
+}
+
+function cerrarModalPartidos() {
+    const modal = document.getElementById('modalPartidos');
+    if (modal) modal.remove();
+}
+
+// Función para agregar detalles de sets dinámicamente
+function agregarSetDetalle(partidoId) {
+    const container = document.getElementById(`sets-detalle-${partidoId}`);
+    const numSet = container.children.length + 1;
+    
+    const setDiv = document.createElement('div');
+    setDiv.className = 'grid grid-cols-2 gap-2 mb-2 bg-gray-50 p-2 rounded';
+    setDiv.innerHTML = `
+        <div>
+            <label class="block text-xs font-bold mb-1">Set ${numSet} - Equipo 1</label>
+            <input type="number" id="set${numSet}-eq1-${partidoId}" min="0" max="7" placeholder="Puntos" class="w-full px-2 py-1 border rounded text-sm">
+        </div>
+        <div>
+            <label class="block text-xs font-bold mb-1">Set ${numSet} - Equipo 2</label>
+            <input type="number" id="set${numSet}-eq2-${partidoId}" min="0" max="7" placeholder="Puntos" class="w-full px-2 py-1 border rounded text-sm">
+        </div>
+    `;
+    container.appendChild(setDiv);
+}
+
+// Función para guardar resultado
+async function guardarResultadoPartido(torneoId, partidoId) {
+    const sets1 = parseInt(document.getElementById(`sets1-${partidoId}`).value) || 0;
+    const sets2 = parseInt(document.getElementById(`sets2-${partidoId}`).value) || 0;
+    
+    if (sets1 === 0 && sets2 === 0) {
+        alert('Debes ingresar al menos un set ganado');
+        return;
     }
-  } catch (err) {
-    alert('Error al registrar resultado');
-  }
+    
+    // Recopilar detalles de sets
+    const setsdetalle = [];
+    const container = document.getElementById(`sets-detalle-${partidoId}`);
+    for (let i = 1; i <= container.children.length; i++) {
+        const eq1Input = document.getElementById(`set${i}-eq1-${partidoId}`);
+        const eq2Input = document.getElementById(`set${i}-eq2-${partidoId}`);
+        if (eq1Input && eq2Input) {
+            setsdetalle.push([
+                parseInt(eq1Input.value) || 0,
+                parseInt(eq2Input.value) || 0
+            ]);
+        }
+    }
+    
+    const ganador = sets1 > sets2 ? 'equipo1' : 'equipo2';
+    const cancha = parseInt(document.getElementById(`cancha-${partidoId}`).value);
+    const fecha = document.getElementById(`fecha-${partidoId}`).value;
+    const hora = document.getElementById(`hora-${partidoId}`).value;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/admin/torneos/${torneoId}/resultado`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-token': state.token
+            },
+            body: JSON.stringify({
+                partidoid: partidoId,
+                resultadoequipo1: sets1,
+                resultadoequipo2: sets2,
+                setsdetalle,
+                ganador,
+                cancha,
+                fecha,
+                hora
+            })
+        });
+        
+        const data = await response.json();
+        if (data.ok) {
+            alert('✅ Resultado guardado exitosamente!');
+            cerrarModalPartidos();
+            await loadAllData();
+        } else {
+            alert('❌ Error: ' + (data.msg || 'No se pudo guardar'));
+        }
+    } catch (err) {
+        alert('❌ Error al guardar resultado');
+        console.error(err);
+    }
 }
 
 // ==================== CONFIG Y REPORTES ====================
